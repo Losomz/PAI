@@ -1,0 +1,22 @@
+{
+  "name": "pai-frontend",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc --noEmit && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "vue": "^3.5",
+    "vue-router": "^4",
+    "naive-ui": "^2",
+    "@vicons/ionicons5": "^0.12"
+  },
+  "devDependencies": {
+    "vite": "^6",
+    "@vitejs/plugin-vue": "^5",
+    "typescript": "^5",
+    "vue-tsc": "^2"
+  }
+}
