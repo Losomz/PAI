@@ -11,6 +11,11 @@ export const routes: RouteRecordRaw[] = [
         name: 'home',
         component: () => import('../views/HomeView.vue'),
       },
+      {
+        path: 'sync',
+        name: 'sync',
+        component: () => import('../views/SyncView.vue'),
+      },
     ],
   },
 ]

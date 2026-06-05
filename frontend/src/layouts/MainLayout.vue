@@ -3,7 +3,7 @@ import { h, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { NLayout, NLayoutSider, NLayoutContent, NMenu, NIcon } from 'naive-ui'
 import type { MenuOption } from 'naive-ui'
-import { HomeOutline } from '@vicons/ionicons5'
+import { HomeOutline, SyncOutline } from '@vicons/ionicons5'
 
 const router = useRouter()
 const collapsed = ref(false)
@@ -17,6 +17,11 @@ const menuOptions: MenuOption[] = [
     label: '首页',
     key: 'home',
     icon: renderIcon(HomeOutline),
+  },
+  {
+    label: '同步',
+    key: 'sync',
+    icon: renderIcon(SyncOutline),
   },
 ]
 
