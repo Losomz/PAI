@@ -19,7 +19,7 @@ const menuOptions: MenuOption[] = [
     icon: renderIcon(HomeOutline),
   },
   {
-    label: '同步',
+    label: '同步记录',
     key: 'sync',
     icon: renderIcon(SyncOutline),
   },

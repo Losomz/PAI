@@ -7,414 +7,440 @@ import {
   NSpace,
   NButton,
   NInput,
-  NTag,
-  NCollapse,
-  NCollapseItem,
-  NCheckbox,
-  NCheckboxGroup,
-  NSpin,
   NIcon,
   NPopconfirm,
+  NModal,
+  NForm,
+  NFormItem,
+  NEmpty,
+  NTag,
+  NSpin,
   useMessage,
 } from 'naive-ui'
 import {
   SyncOutline,
-  CloudDownloadOutline,
+  AddOutline,
   FolderOpenOutline,
-  RefreshOutline,
+  TrashOutline,
+  CreateOutline,
+  ArrowForwardOutline,
+  GitBranchOutline,
 } from '@vicons/ionicons5'
 
-// ── 类型定义 ──
+// ── Types ──
 
-interface SyncTarget {
-  from: string
-  to: string
-  after?: string
-}
-
-interface SyncPackage {
+interface SyncRecord {
+  id: string
   name: string
-  key: string
-  category: string
-  entry_name: string
-  title: string
-  description: string
-  commit_scope: string
-  targets: SyncTarget[]
+  from_path: string
+  to_path: string
+  ref_name: string | null
+  created_at: string
 }
 
-interface SyncCategory {
-  name: string
-  title: string
-  items: SyncPackage[]
-}
-
-interface SyncResultItem {
-  from: string
-  to: string
-  skipped: boolean
-  error?: string
-}
-
-interface RepoInfo {
-  ready: boolean
-  commit: string
-  branch: string
-}
-
-interface GitCommitResult {
-  status: string
-  reason: string
-  message: string
-}
-
-// ── 状态 ──
+// ── State ──
 
 const message = useMessage()
 
-const repoUrl = ref('')
-const refName = ref('')
-const cacheDir = ref('')
+const records = ref<SyncRecord[]>([])
+const loading = ref(true)
+const syncingId = ref<string | null>(null)
 
-const catalog = ref<SyncCategory[]>([])
-const selectedKeys = ref<string[]>([])
-const targetDir = ref('')
+// Modal state
+const showModal = ref(false)
+const editingId = ref<string | null>(null)
+const formName = ref('')
+const formRepoUrl = ref('')
+const formSubPath = ref('')
+const formRefName = ref('')
+const formTo = ref('')
+const saving = ref(false)
 
-const loading = ref(false)
-const syncing = ref(false)
-const logLines = ref<string[]>([])
+// Whether the user is in "remote" mode
+const isRemoteMode = computed(() => {
+  const url = formRepoUrl.value.trim().toLowerCase()
+  return (
+    url.startsWith('http://') ||
+    url.startsWith('https://') ||
+    url.startsWith('git://') ||
+    url.startsWith('ssh://')
+  )
+})
 
-const repoInfo = ref<RepoInfo | null>(null)
+// ── Methods ──
 
-// ── 计算属性 ──
-
-const cacheReady = computed(() => repoInfo.value?.ready ?? false)
-
-const canSync = computed(
-  () =>
-    !syncing.value &&
-    selectedKeys.value.length > 0 &&
-    targetDir.value.length > 0 &&
-    cacheReady.value,
-)
-
-const allPackages = computed(() => catalog.value.flatMap((c) => c.items))
-
-const selectedPackages = computed(() =>
-  allPackages.value.filter((pkg) => selectedKeys.value.includes(pkg.key)),
-)
-
-// ── 日志 ──
-
-function addLog(line: string) {
-  const time = new Date().toLocaleTimeString()
-  logLines.value.push(`[${time}] ${line}`)
-}
-
-function clearLog() {
-  logLines.value = []
-}
-
-// ── 方法 ──
-
-async function loadConfig() {
-  try {
-    const config = await invoke<{ repo_url: string; ref_name: string; cache_dir: string }>(
-      'get_default_config',
-    )
-    // Tauri command 返回的是 Rust 的 serde_json::Value，字段名用 camelCase
-    repoUrl.value = (config as any).repoUrl || ''
-    refName.value = (config as any).refName || ''
-    cacheDir.value = (config as any).cacheDir || ''
-  } catch (e) {
-    message.error('加载配置失败: ' + String(e))
-  }
-}
-
-async function loadRepoInfo() {
-  try {
-    repoInfo.value = await invoke<RepoInfo>('get_repo_info', { cacheDir: cacheDir.value })
-  } catch {
-    repoInfo.value = null
-  }
-}
-
-async function loadCatalog() {
-  if (!cacheReady.value) return
-  try {
-    catalog.value = await invoke<SyncCategory[]>('get_sync_catalog', {
-      repoRoot: cacheDir.value,
-    })
-    addLog(`已加载同步目录：${catalog.value.length} 个分类`)
-  } catch (e) {
-    message.error('加载目录失败: ' + String(e))
-    addLog('加载目录失败: ' + String(e))
-  }
-}
-
-async function updateCache() {
+async function loadRecords() {
   loading.value = true
-  clearLog()
-  addLog(`正在更新缓存: ${repoUrl.value}`)
   try {
-    await invoke<string>('ensure_repo', {
-      repoUrl: repoUrl.value,
-      refName: refName.value,
-      cacheDir: cacheDir.value,
-    })
-    addLog('✓ 缓存更新成功')
-    await loadRepoInfo()
-    await loadCatalog()
-    message.success('缓存更新成功')
+    records.value = await invoke<SyncRecord[]>('list_sync_records')
   } catch (e) {
-    const msg = String(e)
-    addLog('✗ 缓存更新失败: ' + msg)
-    message.error('缓存更新失败: ' + msg)
+    console.error('加载记录失败:', e)
+    message.error('加载记录失败: ' + String(e))
   } finally {
     loading.value = false
   }
 }
 
-async function selectTargetDir() {
+function openCreate() {
+  editingId.value = null
+  formName.value = ''
+  formRepoUrl.value = ''
+  formSubPath.value = ''
+  formRefName.value = ''
+  formTo.value = ''
+  showModal.value = true
+}
+
+function openEdit(record: SyncRecord) {
+  editingId.value = record.id
+  formName.value = record.name
+
+  // Parse from_path: if it contains "::", split into repo + subpath
+  const raw = record.from_path
+  if (isRemoteUrl(raw)) {
+    const idx = raw.indexOf('::')
+    if (idx >= 0) {
+      formRepoUrl.value = raw.substring(0, idx)
+      formSubPath.value = raw.substring(idx + 2)
+    } else {
+      formRepoUrl.value = raw
+      formSubPath.value = ''
+    }
+  } else {
+    formRepoUrl.value = raw
+    formSubPath.value = ''
+  }
+
+  formRefName.value = record.ref_name || ''
+  formTo.value = record.to_path
+  showModal.value = true
+}
+
+function isRemoteUrl(path: string): boolean {
+  const p = path.toLowerCase()
+  return p.startsWith('http://') || p.startsWith('https://') || p.startsWith('git://') || p.startsWith('ssh://')
+}
+
+/** Build the combined from_path for storage */
+function buildFromPath(): string {
+  const url = formRepoUrl.value.trim()
+  const sub = formSubPath.value.trim()
+  if (sub) {
+    return url + '::' + sub
+  }
+  return url
+}
+
+async function saveRecord() {
+  const name = formName.value.trim()
+  const toPath = formTo.value.trim()
+  const repoUrl = formRepoUrl.value.trim()
+
+  if (!name) {
+    message.warning('请输入名称')
+    return
+  }
+  if (!repoUrl) {
+    message.warning('请输入源路径或仓库地址')
+    return
+  }
+  if (!toPath) {
+    message.warning('请选择目标路径')
+    return
+  }
+
+  const fromPath = buildFromPath()
+  const refName = formRefName.value.trim() || null
+
+  saving.value = true
   try {
-    const selected = await open({ directory: true, multiple: false, title: '选择目标目录' })
+    await invoke<SyncRecord>('save_sync_record', {
+      id: editingId.value,
+      name,
+      fromPath,
+      toPath,
+      refName,
+    })
+    message.success(editingId.value ? '已更新' : '已创建')
+    showModal.value = false
+    await loadRecords()
+  } catch (e) {
+    console.error('保存失败:', e)
+    message.error('保存失败: ' + String(e))
+  } finally {
+    saving.value = false
+  }
+}
+
+async function deleteRecord(id: string) {
+  try {
+    await invoke('delete_sync_record', { id })
+    message.success('已删除')
+    await loadRecords()
+  } catch (e) {
+    message.error('删除失败: ' + String(e))
+  }
+}
+
+async function selectDirectory() {
+  try {
+    const selected = await open({
+      directory: true,
+      multiple: false,
+      title: '选择目标目录',
+    })
     if (selected && typeof selected === 'string') {
-      targetDir.value = selected
-      addLog(`目标目录: ${selected}`)
+      formTo.value = selected
     }
   } catch {
-    // 用户取消
+    // User cancelled
   }
 }
 
-async function syncSelected() {
-  if (!canSync.value) return
-  syncing.value = true
-  addLog('─── 开始同步 ───')
-
+async function selectSourceDirectory() {
   try {
-    // 1. 执行文件同步
-    const results = await invoke<SyncResultItem[]>('sync_execute', {
-      repoRoot: cacheDir.value,
-      projectDir: targetDir.value,
-      packages: selectedPackages.value,
+    const selected = await open({
+      directory: true,
+      multiple: false,
+      title: '选择源目录',
     })
-
-    let allOk = true
-    for (const r of results) {
-      if (r.skipped) {
-        addLog(`- 跳过: ${r.from} → ${r.to}`)
-      } else if (r.error) {
-        addLog(`✗ 失败: ${r.from} → ${r.to}: ${r.error}`)
-        allOk = false
-      } else {
-        addLog(`✓ 已同步: ${r.from} → ${r.to}`)
-      }
+    if (selected && typeof selected === 'string') {
+      formRepoUrl.value = selected
     }
+  } catch {
+    // User cancelled
+  }
+}
 
-    // 2. 自动提交
-    if (allOk) {
-      const commitPaths = results
-        .filter((r) => !r.skipped && !r.error)
-        .map((r) => r.to)
-      const uniquePaths = [...new Set(commitPaths)]
+async function syncRecord(record: SyncRecord, mode: 'full' | 'incremental') {
+  syncingId.value = record.id
+  try {
+    const result = await invoke<{ from: string; to: string; skipped: boolean; error?: string }>(
+      'sync_direct',
+      {
+        fromPath: record.from_path,
+        toPath: record.to_path,
+        refName: record.ref_name,
+        syncMode: mode,
+      },
+    )
 
-      if (uniquePaths.length > 0) {
-        const scope =
-          selectedPackages.value.length === 1
-            ? selectedPackages.value[0].commit_scope
-            : 'tools'
-        const commitMsg = `✨ feat(${scope}): 工具升级`
-        addLog(`正在提交: ${commitMsg}`)
-
-        try {
-          const gitResult = await invoke<GitCommitResult>('git_auto_commit', {
-            projectDir: targetDir.value,
-            paths: uniquePaths,
-            message: commitMsg,
-            skipPush: false,
-          })
-          if (gitResult.status === 'committed-and-pushed') {
-            addLog(`✓ 已提交并推送: ${gitResult.message}`)
-          } else {
-            addLog(`Git: ${gitResult.reason}`)
-          }
-        } catch (e) {
-          addLog(`⚠ 提交失败: ${String(e)}（文件已同步）`)
-        }
-      }
+    if (result.skipped) {
+      message.info('源与目标相同，已跳过')
+    } else if (result.error) {
+      message.error('同步失败: ' + result.error)
+    } else {
+      message.success(`✓ ${mode === 'full' ? '全量同步' : '增量同步'}完成: ${record.name}`)
     }
-
-    addLog('─── 同步完成 ───')
-    message.success('同步完成')
   } catch (e) {
-    addLog(`✗ 同步失败: ${String(e)}`)
     message.error('同步失败: ' + String(e))
   } finally {
-    syncing.value = false
+    syncingId.value = null
   }
 }
 
-async function syncAll() {
-  selectedKeys.value = allPackages.value.map((p) => p.key)
-  await syncSelected()
-}
+/** Pretty-print from_path for display */
 
-function selectAll() {
-  selectedKeys.value = allPackages.value.map((p) => p.key)
-}
-
-function deselectAll() {
-  selectedKeys.value = []
-}
-
-// ── 生命周期 ──
-
-onMounted(async () => {
-  await loadConfig()
-  await loadRepoInfo()
-  if (cacheReady.value) {
-    await loadCatalog()
+function displayFrom(raw: string): { repo: string; sub: string | null } {
+  if (isRemoteUrl(raw)) {
+    const idx = raw.indexOf('::')
+    if (idx >= 0) {
+      return { repo: raw.substring(0, idx), sub: raw.substring(idx + 2) }
+    }
+    return { repo: raw, sub: null }
   }
+  return { repo: raw, sub: null }
+}
+
+// ── Lifecycle ──
+
+onMounted(() => {
+  loadRecords()
 })
 </script>
 
 <template>
-  <div style="max-width: 960px; margin: 0 auto">
-    <n-h2 style="margin-bottom: 8px">📦 AgentFramework 同步</n-h2>
-    <n-p depth="3">从 AgentFramework 仓库同步配置和 Agent 模板到目标项目目录。</n-p>
-
-    <!-- 同步源信息 -->
-    <n-card title="同步源" size="small" style="margin-bottom: 16px">
-      <n-space vertical>
-        <n-space align="center">
-          <span style="min-width: 60px">仓库:</span>
-          <n-tag size="small" type="info">{{ repoUrl }}</n-tag>
-        </n-space>
-        <n-space align="center">
-          <span style="min-width: 60px">分支:</span>
-          <n-tag size="small">{{ refName }}</n-tag>
-        </n-space>
-        <n-space align="center">
-          <span style="min-width: 60px">缓存:</span>
-          <n-tag :type="cacheReady ? 'success' : 'warning'" size="small">
-            {{ cacheReady ? `就绪 (${repoInfo?.branch} @ ${repoInfo?.commit})` : '未缓存' }}
-          </n-tag>
-          <n-button
-            size="small"
-            :loading="loading"
-            @click="updateCache"
-          >
-            <template #icon><n-icon><RefreshOutline /></n-icon></template>
-            {{ cacheReady ? '更新缓存' : '拉取缓存' }}
-          </n-button>
-        </n-space>
-      </n-space>
-    </n-card>
-
-    <!-- 目标目录 -->
-    <n-card title="目标目录" size="small" style="margin-bottom: 16px">
-      <n-space align="center">
-        <n-input
-          :value="targetDir"
-          readonly
-          placeholder="选择要同步到的目标项目目录"
-          style="flex: 1"
-        />
-        <n-button @click="selectTargetDir">
-          <template #icon><n-icon><FolderOpenOutline /></n-icon></template>
-          选择目录
-        </n-button>
-      </n-space>
-    </n-card>
-
-    <!-- 可同步内容 -->
-    <n-card title="可同步内容" size="small" style="margin-bottom: 16px">
-      <template v-if="catalog.length === 0">
-        <n-space justify="center" style="padding: 24px">
-          <n-spin v-if="loading" />
-          <n-p v-else depth="3">
-            暂无内容。请先点击「拉取缓存」获取仓库数据。
-          </n-p>
-        </n-space>
-      </template>
-
-      <template v-else>
-        <n-space style="margin-bottom: 12px">
-          <n-button size="tiny" @click="selectAll">全选</n-button>
-          <n-button size="tiny" @click="deselectAll">取消全选</n-button>
-        </n-space>
-
-        <n-checkbox-group v-model:value="selectedKeys">
-          <n-collapse :default-expanded-names="catalog.map((c) => c.name)">
-            <n-collapse-item
-              v-for="category in catalog"
-              :key="category.name"
-              :title="`${category.title}（${category.items.length} 项）`"
-              :name="category.name"
-            >
-              <n-space vertical>
-                <n-checkbox
-                  v-for="item in category.items"
-                  :key="item.key"
-                  :value="item.key"
-                >
-                  <span>{{ item.title }}</span>
-                  <span style="color: #999; margin-left: 8px; font-size: 12px">
-                    {{ item.description }}
-                  </span>
-                </n-checkbox>
-              </n-space>
-            </n-collapse-item>
-          </n-collapse>
-        </n-checkbox-group>
-      </template>
-    </n-card>
-
-    <!-- 操作按钮 -->
-    <n-space style="margin-bottom: 16px">
-      <n-button
-        type="primary"
-        :loading="syncing"
-        :disabled="!canSync"
-        @click="syncSelected"
-      >
-        <template #icon><n-icon><SyncOutline /></n-icon></template>
-        同步选中项 ({{ selectedKeys.length }})
+  <div style="max-width: 800px; margin: 0 auto">
+    <!-- Header -->
+    <n-space justify="space-between" align="center" style="margin-bottom: 20px">
+      <div>
+        <h2 style="margin: 0 0 4px 0; font-size: 22px; font-weight: 600">🔄 同步记录</h2>
+        <p style="margin: 0; color: #999">管理同步任务，点击即可执行。</p>
+      </div>
+      <n-button type="primary" @click="openCreate">
+        <template #icon><n-icon><AddOutline /></n-icon></template>
+        新建同步
       </n-button>
-      <n-popconfirm @positive-click="syncAll">
-        <template #trigger>
-          <n-button :loading="syncing" :disabled="!cacheReady || !targetDir">
-            <template #icon><n-icon><CloudDownloadOutline /></n-icon></template>
-            全部同步
-          </n-button>
-        </template>
-        确定要同步全部内容吗？这会覆盖目标目录中的同名文件。
-      </n-popconfirm>
     </n-space>
 
-    <!-- 同步日志 -->
-    <n-card
-      v-if="logLines.length > 0"
-      title="同步日志"
-      size="small"
-      style="margin-bottom: 16px"
-    >
-      <div
-        style="
-          max-height: 300px;
-          overflow-y: auto;
-          font-family: 'Cascadia Code', 'Fira Code', monospace;
-          font-size: 13px;
-          line-height: 1.6;
-          white-space: pre-wrap;
-        "
+    <!-- Loading -->
+    <n-space v-if="loading" justify="center" style="padding: 48px">
+      <n-spin size="large" />
+    </n-space>
+
+    <!-- Empty state -->
+    <n-empty
+      v-else-if="records.length === 0"
+      description="暂无同步记录，点击右上角新建"
+      style="padding: 64px 0"
+    />
+
+    <!-- Record list -->
+    <n-space v-else vertical size="large">
+      <n-card
+        v-for="record in records"
+        :key="record.id"
+        size="small"
+        hoverable
+        style="cursor: default"
       >
-        <div v-for="(line, i) in logLines" :key="i">{{ line }}</div>
-      </div>
+        <template #header>
+          <n-space align="center" :size="8">
+            <span style="font-weight: 600">{{ record.name }}</span>
+            <n-tag v-if="isRemoteUrl(record.from_path)" size="tiny" :bordered="false" type="info">
+              远程仓库
+            </n-tag>
+            <n-tag v-else size="tiny" :bordered="false" type="success">本地路径</n-tag>
+          </n-space>
+        </template>
+
+        <!-- Path display -->
+        <div
+          style="
+            font-family: 'Cascadia Code', monospace;
+            font-size: 13px;
+            margin-bottom: 12px;
+            line-height: 1.8;
+          "
+        >
+          <div>
+            <n-tag :bordered="false" type="success" size="small" style="margin-right: 4px">源</n-tag>
+            <span style="word-break: break-all">{{ displayFrom(record.from_path).repo }}</span>
+          </div>
+          <div v-if="displayFrom(record.from_path).sub" style="padding-left: 34px; color: #bbb">
+            📂 {{ displayFrom(record.from_path).sub }}
+          </div>
+          <div v-if="record.ref_name" style="padding-left: 34px; color: #bbb">
+            <n-icon size="12" style="vertical-align: middle; margin-right: 2px">
+              <GitBranchOutline />
+            </n-icon>
+            {{ record.ref_name }}
+          </div>
+          <div style="margin-top: 4px">
+            <n-icon size="14" style="vertical-align: middle; margin: 0 4px; color: #666">
+              <ArrowForwardOutline />
+            </n-icon>
+          </div>
+          <div>
+            <n-tag :bordered="false" type="warning" size="small" style="margin-right: 4px">目标</n-tag>
+            <span style="word-break: break-all">{{ record.to_path }}</span>
+          </div>
+        </div>
+
+        <!-- Actions -->
+        <n-space>
+          <n-button
+            type="primary"
+            size="small"
+            :loading="syncingId === record.id"
+            @click="syncRecord(record, 'full')"
+          >
+            <template #icon><n-icon><SyncOutline /></n-icon></template>
+            全量同步
+          </n-button>
+          <n-button
+            type="warning"
+            size="small"
+            ghost
+            :loading="syncingId === record.id"
+            @click="syncRecord(record, 'incremental')"
+          >
+            <template #icon><n-icon><SyncOutline /></n-icon></template>
+            增量同步
+          </n-button>
+          <n-button size="small" @click="openEdit(record)">
+            <template #icon><n-icon><CreateOutline /></n-icon></template>
+            编辑
+          </n-button>
+          <n-popconfirm @positive-click="deleteRecord(record.id)">
+            <template #trigger>
+              <n-button size="small" type="error" ghost>
+                <template #icon><n-icon><TrashOutline /></n-icon></template>
+                删除
+              </n-button>
+            </template>
+            确定删除「{{ record.name }}」？
+          </n-popconfirm>
+        </n-space>
+      </n-card>
+    </n-space>
+
+    <!-- Create / Edit Modal -->
+    <n-modal
+      v-model:show="showModal"
+      preset="card"
+      :title="editingId ? '编辑同步记录' : '新建同步记录'"
+      style="max-width: 520px"
+      :mask-closable="false"
+    >
+      <n-form label-placement="top">
+        <n-form-item label="名称">
+          <n-input
+            v-model:value="formName"
+            placeholder="例如：Agent 模板同步"
+          />
+        </n-form-item>
+
+        <n-form-item label="源路径 / 仓库地址">
+          <n-space align="center" style="width: 100%" :size="8">
+            <n-input
+              v-model:value="formRepoUrl"
+              placeholder="本地路径 或 https://github.com/xxx/yyy.git"
+              style="flex: 1"
+            />
+            <n-button @click="selectSourceDirectory">
+              <template #icon><n-icon><FolderOpenOutline /></n-icon></template>
+            </n-button>
+          </n-space>
+        </n-form-item>
+
+        <n-form-item v-if="isRemoteMode" label="仓库内路径（可选）">
+          <n-input
+            v-model:value="formSubPath"
+            placeholder="例如：agents 或 configs/.pi，留空同步整个仓库"
+          />
+        </n-form-item>
+
+        <n-form-item v-if="isRemoteMode" label="分支 / Tag（可选）">
+          <n-input
+            v-model:value="formRefName"
+            placeholder="默认 main"
+          />
+        </n-form-item>
+
+        <n-form-item label="目标路径">
+          <n-space align="center" style="width: 100%" :size="8">
+            <n-input
+              v-model:value="formTo"
+              placeholder="同步到的目标目录"
+              style="flex: 1"
+            />
+            <n-button @click="selectDirectory">
+              <template #icon><n-icon><FolderOpenOutline /></n-icon></template>
+            </n-button>
+          </n-space>
+        </n-form-item>
+
+      </n-form>
+
       <template #action>
-        <n-button size="tiny" @click="clearLog">清除日志</n-button>
+        <n-space justify="end">
+          <n-button @click="showModal = false">取消</n-button>
+          <n-button type="primary" :loading="saving" @click="saveRecord">
+            {{ editingId ? '保存' : '创建' }}
+          </n-button>
+        </n-space>
       </template>
-    </n-card>
+    </n-modal>
   </div>
 </template>
