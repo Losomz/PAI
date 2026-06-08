@@ -40,6 +40,16 @@ jobs:
       - name: Install frontend dependencies
         run: npm --prefix frontend ci
 
+      - name: Set version from tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        run: |
+          $version = "${{ github.ref_name }}" -replace '^v',''
+          $json = Get-Content "src-tauri/tauri.conf.json" -Raw | ConvertFrom-Json
+          $json.version = $version
+          $json | ConvertTo-Json -Depth 10 | Set-Content "src-tauri/tauri.conf.json"
+          Write-Host "Version set to: $version"
+
       - name: Write updater signing key
         shell: pwsh
         run: |

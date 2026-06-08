@@ -1,6 +1,6 @@
 {
   "productName": "PAI",
-  "version": "0.0.3",
+  "version": "0.0.5",
   "identifier": "com.pai.toolbox",
   "build": {
     "beforeDevCommand": "npm --prefix frontend run dev",
@@ -28,7 +28,7 @@
       "endpoints": [
         "https://github.com/Losomz/PAI/releases/latest/download/latest.json"
       ],
-      "pubkey": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAv2Auj7/aQxww39NegokpN/6/Bxi7zUwLtbPu/A63TJtbfi5h91T1kjo6ixep7MwlZ/5PG4pO/rMKRdeFksawrTQCqkRo3haolKG8qiJFHFdTKyKgwUMqJD5gbPe0qBXYv4c2QsqWzNUKBFmvDfi8VKZFxBVX/vJxZl8WUN5bBtJQTUXwTJuz/lw9+YPK0Mm85FdieLPAMrMK4O3U9zd2cL6sKaumMSSEuqrIvikEQF/CN6vv9p7cbUjTonWKFF3/xCrgQM/VPKcHWPCqxlKYyY993vCbGARrSjseSxts3hDRrZRcqsyOndQxgA+OA2saRTp2yzyPL9bTvJYGw8BLDQIDAQAB"
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDk0ODcxMjQ2RUM0QzMzM0IKUldRN00wenNSaEtIbEorNkduOTR1SWxWZHVFU20xMmNnMmtFNHFrZzNkZmx0aUJZUGZUZDRYTlgK"
     }
   },
   "bundle": {

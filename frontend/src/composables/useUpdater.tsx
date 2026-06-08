@@ -1,6 +1,6 @@
 import { check } from '@tauri-apps/plugin-updater'
 import { relaunch } from '@tauri-apps/plugin-process'
-import { Modal, Progress } from '@arco-design/web-react'
+import { Modal, Progress, Message } from '@arco-design/web-react'
 import { useState, useEffect, useCallback } from 'react'
 
 export function useUpdater() {
@@ -13,16 +13,16 @@ export function useUpdater() {
 
       if (!update?.available) return
 
-      let confirmed = false
-
-      Modal.confirm({
-        title: '发现新版本',
-        content: `当前版本：${update.currentVersion} → 新版本：${update.version}`,
-        okText: '立即更新',
-        cancelText: '稍后再说',
-        onOk: async () => {
-          confirmed = true
-        },
+      // 用 Promise 等待用户确认
+      const confirmed = await new Promise<boolean>((resolve) => {
+        Modal.confirm({
+          title: '发现新版本',
+          content: `当前版本：${update.currentVersion} → 新版本：${update.version}`,
+          okText: '立即更新',
+          cancelText: '稍后再说',
+          onOk: () => resolve(true),
+          onCancel: () => resolve(false),
+        })
       })
 
       if (!confirmed) return
@@ -51,6 +51,7 @@ export function useUpdater() {
       await relaunch()
     } catch (e) {
       console.error('更新检查失败:', e)
+      Message.error('更新检查失败: ' + String(e))
       setDownloading(false)
     }
   }, [])
