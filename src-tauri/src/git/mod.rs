@@ -3,6 +3,10 @@ use std::process::{Command, Stdio};
 
 use serde::{Deserialize, Serialize};
 
+use std::os::windows::process::CommandExt;
+
+const CREATE_NO_WINDOW: u32 = 0x08000000;
+
 // ── 辅助：执行 git 命令 ──
 
 fn run_git(args: &[&str], cwd: Option<&Path>) -> Result<String, String> {
@@ -12,6 +16,7 @@ fn run_git(args: &[&str], cwd: Option<&Path>) -> Result<String, String> {
         cmd.current_dir(dir);
     }
     cmd.stdout(Stdio::piped()).stderr(Stdio::piped());
+    cmd.creation_flags(CREATE_NO_WINDOW);
 
     let output = cmd
         .output()
