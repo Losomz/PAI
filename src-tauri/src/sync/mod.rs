@@ -78,50 +78,53 @@ impl SyncMode {
 }
 
 #[tauri::command]
-pub fn sync_direct(
+pub async fn sync_direct(
     from_path: String,
     to_path: String,
     ref_name: Option<String>,
     sync_mode: Option<String>,
 ) -> Result<SyncResult, String> {
-    let target = Path::new(&to_path);
-    let sync_mode = SyncMode::from_option(sync_mode)?;
+    tokio::task::spawn_blocking(move || -> Result<SyncResult, String> {
+        let target = Path::new(&to_path);
+        let sync_mode = SyncMode::from_option(sync_mode)?;
 
-    match parse_remote_source(&from_path) {
-        Some((repo_url, sub_path)) => {
-            // Remote repository source
-            let branch = ref_name.unwrap_or_else(|| "main".to_string());
-            let cache_dir = repo_cache_dir(&repo_url);
+        match parse_remote_source(&from_path) {
+            Some((repo_url, sub_path)) => {
+                // Remote repository source
+                let branch = ref_name.unwrap_or_else(|| "main".to_string());
+                let cache_dir = repo_cache_dir(&repo_url);
 
-            // Clone or update the repo to cache
-            crate::git::ensure_repo(&repo_url, &branch, &cache_dir)?;
+                // Clone or update the repo to cache
+                crate::git::ensure_repo(&repo_url, &branch, &cache_dir)?;
 
-            // The actual source is cache_dir + optional sub_path
-            let effective_source = match &sub_path {
-                Some(sp) => cache_dir.join(sp),
-                None => cache_dir.clone(),
-            };
+                // The actual source is cache_dir + optional sub_path
+                let effective_source = match &sub_path {
+                    Some(sp) => cache_dir.join(sp),
+                    None => cache_dir.clone(),
+                };
 
-            if !effective_source.exists() {
-                return Err(format!(
-                    "仓库内路径不存在: {} (缓存位置: {})",
-                    sub_path.unwrap_or_default(),
-                    effective_source.display()
-                ));
+                if !effective_source.exists() {
+                    return Err(format!(
+                        "仓库内路径不存在: {} (缓存位置: {})",
+                        sub_path.unwrap_or_default(),
+                        effective_source.display()
+                    ));
+                }
+
+                do_sync(&effective_source, target, &from_path, &to_path, sync_mode)
             }
-
-            do_sync(&effective_source, target, &from_path, &to_path, sync_mode)
-        }
-        None => {
-            // Local path source
-            let source = Path::new(&from_path);
-            if !source.exists() {
-                return Err(format!("源路径不存在: {}", from_path));
+            None => {
+                // Local path source
+                let source = Path::new(&from_path);
+                if !source.exists() {
+                    return Err(format!("源路径不存在: {}", from_path));
+                }
+                do_sync(source, target, &from_path, &to_path, sync_mode)
             }
-            do_sync(source, target, &from_path, &to_path, sync_mode)
         }
-    }
-}
+    })
+    .await
+    .map_err(|e| format!("任务执行失败: {}", e))? }
 
 /// Core copy logic: source path → target path
 fn do_sync(

@@ -204,7 +204,8 @@ pub fn auto_commit_and_push(
 }
 
 fn log_action(msg: &str) {
-    println!("[PAI git] {}", msg);
+    use std::io::Write;
+    let _ = std::io::stderr().write_all(format!("[PAI git] {}\n", msg).as_bytes());
 }
 
 // ── 数据结构 ──

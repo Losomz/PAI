@@ -364,18 +364,22 @@ export default function SyncView() {
                 size="small"
                 icon={<IconSync />}
                 loading={syncingId === record.id}
-                onClick={() => syncRecord(record, 'full')}
-              >
-                全量同步
-              </Button>
-              <Button
-                size="small"
-                icon={<IconSync />}
-                loading={syncingId === record.id}
                 onClick={() => syncRecord(record, 'incremental')}
               >
                 增量同步
               </Button>
+              <Popconfirm
+                title="⚠️ 全量同步可能会导致文件丢失，请确认已做好备份！"
+                onOk={() => syncRecord(record, 'full')}
+              >
+                <Button
+                  size="small"
+                  icon={<IconSync />}
+                  loading={syncingId === record.id}
+                >
+                  全量同步
+                </Button>
+              </Popconfirm>
               <Button
                 size="small"
                 icon={<IconEdit />}
