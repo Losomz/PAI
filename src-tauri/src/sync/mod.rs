@@ -11,6 +11,7 @@ pub struct SyncResult {
     pub to: String,
     pub skipped: bool,
     pub error: Option<String>,
+    pub files_copied: u64,
 }
 
 // ── URL detection ──
@@ -150,10 +151,11 @@ fn do_sync(
             to: display_to.to_string(),
             skipped: true,
             error: None,
+            files_copied: 0,
         });
     }
 
-    match sync_mode {
+    let files_copied = match sync_mode {
         SyncMode::Full => {
             // Full sync: remove the existing target first, then copy everything from source.
             if target.exists() {
@@ -163,13 +165,24 @@ fn do_sync(
                     fs::remove_file(target).map_err(|e| format!("删除目标文件失败: {}", e))?;
                 }
             }
-            copy_source_to_target(source, target)?;
+            copy_source_to_target(source, target)?
         }
         SyncMode::Incremental => {
             // Incremental sync: copy everything from source onto target without deleting target extras.
             // Same-path files are overwritten; new source files are added.
-            copy_source_to_target(source, target)?;
+            copy_source_to_target(source, target)?
         }
+    };
+
+    // If nothing was copied (empty source), flag it as an error
+    if files_copied == 0 {
+        return Ok(SyncResult {
+            from: display_from.to_string(),
+            to: display_to.to_string(),
+            skipped: false,
+            error: Some("源目录为空，未复制任何文件。请检查仓库地址和分支名是否正确".to_string()),
+            files_copied: 0,
+        });
     }
 
     Ok(SyncResult {
@@ -177,12 +190,13 @@ fn do_sync(
         to: display_to.to_string(),
         skipped: false,
         error: None,
+        files_copied,
     })
 }
 
 // ── Helpers ──
 
-fn copy_source_to_target(source: &Path, target: &Path) -> Result<(), String> {
+fn copy_source_to_target(source: &Path, target: &Path) -> Result<u64, String> {
     if source.is_dir() {
         if target.exists() && !target.is_dir() {
             return Err("目标路径已存在且不是目录，无法同步目录".to_string());
@@ -196,13 +210,14 @@ fn copy_source_to_target(source: &Path, target: &Path) -> Result<(), String> {
             fs::create_dir_all(parent).map_err(|e| format!("创建目标父目录失败: {}", e))?;
         }
         fs::copy(source, target).map_err(|e| format!("复制文件失败: {}", e))?;
-        Ok(())
+        Ok(1)
     }
 }
 
-fn copy_dir_recursive(source: &Path, target: &Path) -> Result<(), String> {
+fn copy_dir_recursive(source: &Path, target: &Path) -> Result<u64, String> {
     fs::create_dir_all(target).map_err(|e| format!("创建目录失败: {}", e))?;
 
+    let mut count: u64 = 0;
     for entry in walkdir::WalkDir::new(source)
         .into_iter()
         .filter_map(|e| e.ok())
@@ -225,8 +240,9 @@ fn copy_dir_recursive(source: &Path, target: &Path) -> Result<(), String> {
             }
             fs::copy(entry_path, &dest_path)
                 .map_err(|e| format!("复制文件失败 {}: {}", entry_path.display(), e))?;
+            count += 1;
         }
     }
 
-    Ok(())
+    Ok(count)
 }

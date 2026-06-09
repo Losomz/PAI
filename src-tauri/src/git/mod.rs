@@ -45,13 +45,18 @@ fn run_git(args: &[&str], cwd: Option<&Path>) -> Result<String, String> {
 /// 克隆或更新仓库缓存，返回仓库根目录路径
 pub fn ensure_repo(repo_url: &str, ref_name: &str, cache_dir: &Path) -> Result<String, String> {
     let git_dir = cache_dir.join(".git");
+    let is_valid_repo = git_dir.exists() && git_dir.is_dir();
 
-    if !git_dir.exists() {
+    if !is_valid_repo {
+        // Clean up any residual (e.g. from a previously failed clone)
+        if cache_dir.exists() {
+            let _ = std::fs::remove_dir_all(cache_dir);
+        }
         std::fs::create_dir_all(cache_dir)
             .map_err(|e| format!("创建缓存目录失败: {}", e))?;
 
         log_action(&format!("正在克隆 {} ...", repo_url));
-        run_git(
+        if let Err(e) = run_git(
             &[
                 "clone",
                 "--depth",
@@ -62,17 +67,31 @@ pub fn ensure_repo(repo_url: &str, ref_name: &str, cache_dir: &Path) -> Result<S
                 &cache_dir.to_string_lossy(),
             ],
             None,
-        )?;
+        ) {
+            // Clone failed — clean up residual so next attempt starts fresh
+            let _ = std::fs::remove_dir_all(cache_dir);
+            return Err(format!("克隆仓库失败: {}", e));
+        }
+
+        // Verify the clone actually produced content
+        if !git_dir.exists() || !cache_dir.join(".git").is_dir() {
+            let _ = std::fs::remove_dir_all(cache_dir);
+            return Err("克隆完成但仓库目录结构异常，请检查仓库地址和分支名".to_string());
+        }
     } else {
         log_action("正在更新缓存...");
         run_git(
             &["remote", "set-url", "origin", repo_url],
             Some(cache_dir),
         )?;
-        run_git(
+        if let Err(e) = run_git(
             &["fetch", "--depth", "1", "origin", ref_name],
             Some(cache_dir),
-        )?;
+        ) {
+            // Fetch failed — blow away the cache so next attempt re-clones
+            let _ = std::fs::remove_dir_all(cache_dir);
+            return Err(format!("拉取更新失败（已清理缓存，下次将重新克隆）: {}", e));
+        }
         run_git(&["checkout", ref_name], Some(cache_dir))?;
         run_git(
             &["reset", "--hard", &format!("origin/{}", ref_name)],

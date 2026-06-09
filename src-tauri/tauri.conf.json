@@ -1,6 +1,6 @@
 {
   "productName": "PAI",
-  "version": "0.0.5",
+  "version": "0.0.6-beta.1",
   "identifier": "com.pai.toolbox",
   "build": {
     "beforeDevCommand": "npm --prefix frontend run dev",
@@ -34,6 +34,7 @@
   "bundle": {
     "active": true,
     "targets": ["nsis"],
+    "createUpdaterArtifacts": true,
     "icon": [
       "icons/icon.ico"
     ],

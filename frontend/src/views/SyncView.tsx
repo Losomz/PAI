@@ -228,6 +228,7 @@ export default function SyncView() {
         to: string
         skipped: boolean
         error?: string
+        files_copied: number
       }>('sync_direct', {
         fromPath: record.from_path,
         toPath: record.to_path,
@@ -241,7 +242,7 @@ export default function SyncView() {
         Message.error('同步失败: ' + result.error)
       } else {
         Message.success(
-          `✓ ${mode === 'full' ? '全量同步' : '增量同步'}完成: ${record.name}`,
+          `✓ ${mode === 'full' ? '全量同步' : '增量同步'}完成: ${record.name}（${result.files_copied} 个文件）`,
         )
       }
     } catch (e) {
