@@ -5,5 +5,6 @@ target/
 .DS_Store
 tauri-dev.log
 
-# Tauri updater signing keys (never commit private keys)
-src-tauri/pai-update-private.key
+# Tauri updater signing keys (never commit generated key files)
+src-tauri/*.key
+src-tauri/*.key.pub
