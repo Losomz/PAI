@@ -1,12 +1,15 @@
 import { useState } from 'react'
 import { Outlet, useNavigate, useLocation } from 'react-router-dom'
-import { Layout, Menu } from '@arco-design/web-react'
+import { Layout, Menu, Drawer } from '@arco-design/web-react'
 import {
   IconHome,
   IconSync,
   IconLeft,
   IconRight,
+  IconSettings,
 } from '@arco-design/web-react/icon'
+import SettingsView from '../views/SettingsView'
+import { useUpdater } from '../composables/useUpdater'
 
 const { Sider, Content } = Layout
 
@@ -19,6 +22,8 @@ export default function MainLayout() {
   const navigate = useNavigate()
   const location = useLocation()
   const [collapsed, setCollapsed] = useState(false)
+  const [settingsVisible, setSettingsVisible] = useState(false)
+  const { checkForUpdate, downloading } = useUpdater()
 
   return (
     <Layout style={{ height: '100vh' }}>
@@ -29,7 +34,7 @@ export default function MainLayout() {
         trigger={collapsed ? <IconRight /> : <IconLeft />}
         width={200}
         collapsedWidth={64}
-        style={{ borderRight: '1px solid var(--color-border)' }}
+        style={{ borderRight: '1px solid var(--color-border)', display: 'flex', flexDirection: 'column' }}
       >
         <div
           style={{
@@ -55,7 +60,34 @@ export default function MainLayout() {
             </Menu.Item>
           ))}
         </Menu>
+        <div style={{ flex: 1 }} />
+        <div
+          style={{
+            padding: 16,
+            borderTop: '1px solid var(--color-border)',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: collapsed ? 'center' : 'flex-start',
+          }}
+          onClick={() => setSettingsVisible(true)}
+        >
+          <IconSettings style={{ fontSize: 18 }} />
+          {!collapsed && <span style={{ marginLeft: 8 }}>设置</span>}
+        </div>
       </Sider>
+      <Drawer
+        title="设置"
+        visible={settingsVisible}
+        onCancel={() => setSettingsVisible(false)}
+        footer={null}
+        width={320}
+      >
+        <SettingsView
+          onCheckUpdate={checkForUpdate}
+          downloading={downloading}
+        />
+      </Drawer>
       <Layout>
         <Content style={{ padding: 24 }}>
           <Outlet />

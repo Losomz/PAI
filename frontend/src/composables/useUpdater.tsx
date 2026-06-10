@@ -7,11 +7,16 @@ export function useUpdater() {
   const [progress, setProgress] = useState(0)
   const [downloading, setDownloading] = useState(false)
 
-  const doUpdate = useCallback(async () => {
+  const doUpdate = useCallback(async (silent = true) => {
     try {
       const update = await check()
 
-      if (!update?.available) return
+      if (!update?.available) {
+        if (!silent) {
+          Message.info('当前已是最新版本')
+        }
+        return
+      }
 
       // 用 Promise 等待用户确认
       const confirmed = await new Promise<boolean>((resolve) => {
@@ -56,8 +61,9 @@ export function useUpdater() {
     }
   }, [])
 
+  // 启动时自动检查（静默模式）
   useEffect(() => {
-    const timer = setTimeout(doUpdate, 3000)
+    const timer = setTimeout(() => doUpdate(true), 3000)
     return () => clearTimeout(timer)
   }, [doUpdate])
 
@@ -88,4 +94,15 @@ export function useUpdater() {
       }
     }
   }, [downloading, progress])
+
+  // 返回手动检查更新的方法
+  const checkForUpdate = useCallback(() => {
+    doUpdate(false)
+  }, [doUpdate])
+
+  return {
+    checkForUpdate,
+    downloading,
+    progress,
+  }
 }
