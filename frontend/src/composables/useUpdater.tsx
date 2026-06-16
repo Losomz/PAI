@@ -1,11 +1,12 @@
 import { check } from '@tauri-apps/plugin-updater'
 import { relaunch } from '@tauri-apps/plugin-process'
 import { Modal, Progress, Message } from '@arco-design/web-react'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 
 export function useUpdater() {
   const [progress, setProgress] = useState(0)
   const [downloading, setDownloading] = useState(false)
+  const modalRef = useRef<ReturnType<typeof Modal.info> | null>(null)
 
   const doUpdate = useCallback(async (silent = true) => {
     try {
@@ -32,6 +33,7 @@ export function useUpdater() {
 
       if (!confirmed) return
 
+      setProgress(0)
       setDownloading(true)
       let downloaded = 0
       let total = 0
@@ -69,29 +71,33 @@ export function useUpdater() {
 
   // Download progress modal
   useEffect(() => {
-    if (!downloading) return
-
-    let modalInstance: ReturnType<typeof Modal.info> | null = null
-
-    modalInstance = Modal.info({
-      title: '正在下载更新...',
-      content: (
-        <div>
-          <Progress percent={progress} style={{ marginTop: 8 }} />
-          <p style={{ textAlign: 'center', color: '#999', marginTop: 8 }}>
-            {progress}%
-          </p>
-        </div>
-      ),
-      footer: null,
-      maskClosable: false,
-      closable: false,
-    })
-
-    return () => {
-      if (modalInstance) {
-        modalInstance.close()
+    if (!downloading) {
+      if (modalRef.current) {
+        modalRef.current.close()
+        modalRef.current = null
       }
+      return
+    }
+
+    const content = (
+      <div>
+        <Progress percent={progress} style={{ marginTop: 8 }} />
+        <p style={{ textAlign: 'center', color: '#999', marginTop: 8 }}>
+          {progress}%
+        </p>
+      </div>
+    )
+
+    if (!modalRef.current) {
+      modalRef.current = Modal.info({
+        title: '正在下载更新...',
+        content,
+        footer: null,
+        maskClosable: false,
+        closable: false,
+      })
+    } else {
+      modalRef.current.update({ content })
     }
   }, [downloading, progress])
 
