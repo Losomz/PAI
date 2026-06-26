@@ -19,6 +19,7 @@ import {
   IconFolder,
   IconDelete,
   IconEdit,
+  IconCopy,
   IconRight,
 } from '@arco-design/web-react/icon'
 
@@ -65,6 +66,7 @@ export default function SyncView() {
 
   // Modal state
   const [showModal, setShowModal] = useState(false)
+  const [modalMode, setModalMode] = useState<'create' | 'edit' | 'copy'>('create')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [formName, setFormName] = useState('')
   const [formRepoUrl, setFormRepoUrl] = useState('')
@@ -99,6 +101,7 @@ export default function SyncView() {
   }
 
   function openCreate() {
+    setModalMode('create')
     setEditingId(null)
     setFormName('')
     setFormRepoUrl('')
@@ -108,9 +111,8 @@ export default function SyncView() {
     setShowModal(true)
   }
 
-  function openEdit(record: SyncRecord) {
-    setEditingId(record.id)
-    setFormName(record.name)
+  function fillFormFromRecord(record: SyncRecord, name = record.name) {
+    setFormName(name)
 
     const raw = record.from_path
     if (isRemoteUrl(raw)) {
@@ -129,6 +131,19 @@ export default function SyncView() {
 
     setFormRefName(record.ref_name || '')
     setFormTo(record.to_path)
+  }
+
+  function openEdit(record: SyncRecord) {
+    setModalMode('edit')
+    setEditingId(record.id)
+    fillFormFromRecord(record)
+    setShowModal(true)
+  }
+
+  function openCopy(record: SyncRecord) {
+    setModalMode('copy')
+    setEditingId(null)
+    fillFormFromRecord(record, `${record.name}（副本）`)
     setShowModal(true)
   }
 
@@ -383,6 +398,13 @@ export default function SyncView() {
               </Popconfirm>
               <Button
                 size="small"
+                icon={<IconCopy />}
+                onClick={() => openCopy(record)}
+              >
+                复制
+              </Button>
+              <Button
+                size="small"
                 icon={<IconEdit />}
                 onClick={() => openEdit(record)}
               >
@@ -402,13 +424,19 @@ export default function SyncView() {
 
       {/* Create / Edit Modal */}
       <Modal
-        title={editingId ? '编辑同步记录' : '新建同步记录'}
+        title={
+          modalMode === 'edit'
+            ? '编辑同步记录'
+            : modalMode === 'copy'
+              ? '复制同步记录'
+              : '新建同步记录'
+        }
         visible={showModal}
         onCancel={() => setShowModal(false)}
         maskClosable={false}
         confirmLoading={saving}
         onOk={saveRecord}
-        okText={editingId ? '保存' : '创建'}
+        okText={modalMode === 'edit' ? '保存' : '创建'}
         cancelText="取消"
         style={{ maxWidth: 520 }}
       >
