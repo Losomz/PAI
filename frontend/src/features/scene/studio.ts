@@ -1,72 +1,57 @@
 import {
-  AmbientLight, BoxGeometry, BufferGeometry, CircleGeometry, Color, CylinderGeometry, DirectionalLight,
-  Fog, GridHelper, IcosahedronGeometry, LatheGeometry, Material, Mesh, MeshBasicMaterial,
-  MeshStandardMaterial, PlaneGeometry, Scene, Vector2,
+  AmbientLight, BufferGeometry, Color, DirectionalLight, Fog, GridHelper, Material, Mesh, MeshStandardMaterial,
+  PlaneGeometry, Scene,
 } from 'three'
 
-// Static reference objects for comparing silhouettes, depth and foreshortening.
+// The default dark studio uses PixelFX's own night and stone-floor colours, where effects made of light read the
+// way they were drawn. The light one is there to check how an effect holds up on a bright background.
+const looks = {
+  light: { sky: '#e2eae7', floor: '#c8d4d0', grid: ['#839d96', '#aabcb6'], opacity: 0.62,
+    ambient: [1.08, 0.62], key: [3.2, 1.1], rim: [1.65, 0.45] },
+  dark: { sky: '#15131d', floor: '#2b2639', grid: ['#4a4263', '#2f2a3d'], opacity: 0.8,
+    ambient: [0.34, 0.3], key: [1.25, 0.6], rim: [0.55, 0.25] },
+}
+
+// An empty stage: a floor, a grid to read depth and foreshortening against, and the lights.
 export function createStudio(hardware: boolean) {
   const scene = new Scene()
-  scene.background = new Color('#e2eae7')
-  scene.fog = new Fog('#e2eae7', 13, 34)
+  const sky = new Color(), fog = new Fog(new Color(), 13, 34)
+  scene.background = sky
+  scene.fog = fog
   const geometries: BufferGeometry[] = []
   const materials: Material[] = []
 
-  function solid(geometry: BufferGeometry, color: string, x: number, y: number, z: number, metalness = 0) {
-    const material = new MeshStandardMaterial({ color, metalness, roughness: 0.39 })
-    const mesh = new Mesh(geometry, material)
-    mesh.position.set(x, y, z)
-    mesh.castShadow = true
-    mesh.receiveShadow = true
-    scene.add(mesh)
-    geometries.push(geometry)
-    materials.push(material)
-    return mesh
-  }
-
+  // The vector renderer has no shadow maps, and the grid alone shows where the floor is.
+  let ground: MeshStandardMaterial | null = null, floor: Mesh | null = null
   if (hardware) {
-    const floor = solid(new PlaneGeometry(140, 140), '#c8d4d0', 0, -0.018, 0)
+    const geometry = new PlaneGeometry(140, 140)
+    // Matte, so the effects' lights pool on it instead of glaring off it.
+    ground = new MeshStandardMaterial({ roughness: 0.95 })
+    floor = new Mesh(geometry, ground)
+    floor.position.y = -0.018
     floor.rotation.x = -Math.PI / 2
-    floor.castShadow = false
-  } else {
-    // The vector renderer has no shadow maps. Contact patches keep the objects grounded.
-    const geometry = new CircleGeometry(1, 48)
-    const material = new MeshBasicMaterial({ color: '#8da39b', transparent: true, opacity: 0.32, depthWrite: false })
+    floor.receiveShadow = true
+    scene.add(floor)
     geometries.push(geometry)
-    materials.push(material)
-    for (const [x, z, radius] of [[0, 0, 1.88], [-2.45, 0.9, 0.69], [2.25, -0.9, 0.95]]) {
-      const patch = new Mesh(geometry, material)
-      patch.position.set(x, 0.005, z)
-      patch.rotation.x = -Math.PI / 2
-      patch.scale.set(radius, radius * 0.92, 1)
-      patch.renderOrder = -1
-      scene.add(patch)
-    }
+    materials.push(ground)
   }
-  const grid = new GridHelper(48, 48, '#839d96', '#aabcb6')
-  grid.material.transparent = true
-  grid.material.opacity = 0.62
-  grid.renderOrder = -2
-  scene.add(grid)
-  geometries.push(grid.geometry)
-  materials.push(grid.material)
+  const [lightGrid, darkGrid] = [looks.light, looks.dark].map(({ grid: [center, lines], opacity }) => {
+    const grid = new GridHelper(48, 48, center, lines)
+    // The vector renderer strokes lines in the material's colour and ignores vertex colours.
+    if (!hardware) grid.material.color.set(lines)
+    grid.material.transparent = true
+    grid.material.opacity = opacity
+    grid.renderOrder = -2
+    scene.add(grid)
+    geometries.push(grid.geometry)
+    materials.push(grid.material)
+    return grid
+  })
 
-  solid(new CylinderGeometry(1.66, 1.74, 0.24, 64), '#284e4b', 0, 0.12, 0)
-  solid(new CylinderGeometry(1.60, 1.62, 0.10, 64), '#96b5a9', 0, 0.29, 0)
-
-  // A thick annular disc with chamfered edges. Its opening looks different from each angle.
-  const profile = [[0.8, -0.19], [1.31, -0.19], [1.40, -0.1], [1.40, 0.10],
-    [1.31, 0.19], [0.80, 0.19], [0.71, 0.10], [0.71, -0.10], [0.8, -0.19]]
-  const disc = solid(new LatheGeometry(profile.map(([r, y]) => new Vector2(r, y)), 72),
-    '#e79642', 0, 1.74, 0, 0.23)
-  disc.rotation.set(Math.PI / 2, 0, -0.14)
-  const sphere = solid(new IcosahedronGeometry(0.78, 1), '#42958a', -2.45, 0.75, 0.9)
-  sphere.material.flatShading = true
-  const cube = solid(new BoxGeometry(1.32, 1.58, 1.32), '#a2b6ab', 2.25, 0.79, -0.9)
-  cube.rotation.y = -0.18
-
-  scene.add(new AmbientLight('#ebf5f2', hardware ? 1.08 : 0.62))
-  const key = new DirectionalLight('#fff0dd', hardware ? 3.2 : 1.1)
+  const tier = hardware ? 0 : 1
+  const ambient = new AmbientLight('#ebf5f2')
+  scene.add(ambient)
+  const key = new DirectionalLight('#fff0dd')
   key.position.set(-4, 8, 5)
   key.castShadow = hardware
   key.shadow.mapSize.set(1024, 1024)
@@ -75,12 +60,35 @@ export function createStudio(hardware: boolean) {
   key.shadow.normalBias = 0.025
   key.shadow.bias = -0.00025
   scene.add(key)
-  const rim = new DirectionalLight('#d3ece9', hardware ? 1.65 : 0.45)
+  const rim = new DirectionalLight('#d3ece9')
   rim.position.set(4, 5, -4)
   scene.add(rim)
+  let gridShown = true, dark = true
+  function setGrid(visible: boolean) {
+    gridShown = visible
+    lightGrid.visible = visible && !dark
+    darkGrid.visible = visible && dark
+  }
+  function setDark(value: boolean) {
+    dark = value
+    const look = looks[dark ? 'dark' : 'light']
+    sky.set(look.sky)
+    fog.color.set(look.sky)
+    ground?.color.set(look.floor)
+    ambient.intensity = look.ambient[tier]
+    key.intensity = look.key[tier]
+    rim.intensity = look.rim[tier]
+    setGrid(gridShown)
+  }
+  setDark(true)
 
   return {
-    scene, grid,
+    scene, setGrid, setDark,
+    /** Whether there is a floor to show or hide; the vector renderer draws none. */
+    hasFloor: floor !== null,
+    setFloor(visible: boolean) {
+      if (floor) floor.visible = visible
+    },
     dispose() {
       key.shadow.dispose()
       for (const material of materials) material.dispose()

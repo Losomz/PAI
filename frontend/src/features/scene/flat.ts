@@ -7,8 +7,8 @@ import { SVGObject } from 'three/addons/renderers/SVGRenderer.js'
 import { U } from './effects/kit'
 import type { Sheet } from './effects/registry'
 
-// Where every effect stands: its pivot, on the floor beside the reference objects.
-export const effectFoot = new Vector3(2.75, 0.045, 1.8)
+// Where every effect stands: its pivot, in the middle of the floor.
+export const effectFoot = new Vector3(0, 0.045, 0)
 
 // SVGRenderer does not texture meshes. Depth-sort an HTML canvas alongside its geometry
 // and use the same perspective camera to project the canvas in software-rendered scenes.

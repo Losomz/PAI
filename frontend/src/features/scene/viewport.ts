@@ -1,15 +1,16 @@
 import {
-  ACESFilmicToneMapping, Euler, MathUtils, PCFShadowMap, PerspectiveCamera, Vector3, WebGLRenderer,
+  ACESFilmicToneMapping, Euler, Group, MathUtils, PCFShadowMap, PerspectiveCamera, Vector3, WebGLRenderer,
 } from 'three'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import { SVGRenderer } from 'three/addons/renderers/SVGRenderer.js'
 import { createStudio } from './studio'
-import { addPortal, portalFoot } from './portal'
-import { createPortal3D } from './effects/portal3d'
+import { addFlat, effectFoot } from './flat'
+import { U } from './effects/kit'
+import { sceneEffects } from './effects/registry'
 
 export type CameraMode = 'orbit' | 'fly'
 export type ViewPreset = 'home' | 'top' | 'front' | 'side' | 'back'
-export type PortalVersion = 'volume' | 'flat'
+export type EffectVersion = 'volume' | 'flat'
 export const initialFov = 40
 
 function createRenderer() {
@@ -35,12 +36,13 @@ function createRenderer() {
 }
 
 const motionKeys = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyQ', 'KeyE'])
+// Close enough that the effect fills most of the view, with room for the tallest one.
 const offsets: Record<ViewPreset, Vector3> = {
-  home: new Vector3(3.05, 1.65, 6.45),
-  front: new Vector3(0, 0, 6.85),
-  side: new Vector3(6.85, 0, 0),
-  back: new Vector3(1.8, 2.9, -5.95),
-  top: new Vector3(0, 6.85, 0.001),
+  home: new Vector3(2.5, 1.35, 5.29),
+  front: new Vector3(0, 0, 5.6),
+  side: new Vector3(5.6, 0, 0),
+  back: new Vector3(1.48, 2.38, -4.88),
+  top: new Vector3(0, 5.6, 0.001),
 }
 
 export function mountViewport(host: HTMLDivElement, onError: (message: string) => void) {
@@ -62,11 +64,24 @@ export function mountViewport(host: HTMLDivElement, onError: (message: string) =
   let focusDistance = 9, frame = 0, lastTick = 0
   let dragId: number | null = null, lastX = 0, lastY = 0
   let viewChanged = true, playing = true, playedMs = 0, startedAt = performance.now()
-  const volume = createPortal3D(!!webgl)
-  volume.root.position.copy(portalFoot)
-  volume.root.position.y += 1.36 // The original aperture is 34 pixels above its pivot at 0.04 units per pixel.
-  studio.scene.add(volume.root)
-  let flat: ReturnType<typeof addPortal> | null = null
+  // Effects stand at the same pivot. The camera centres on each one's focus height above it.
+  const stand = new Group()
+  stand.position.copy(effectFoot)
+  studio.scene.add(stand)
+  let effect = sceneEffects[0]
+  let volume = effect.create(!!webgl)
+  stand.add(volume.root)
+  let flat: ReturnType<typeof addFlat> | null = null
+  let floorShown = true
+  // An effect's light on the floor shows only with the floor (and only with WebGL, like the floor itself).
+  const lightFloor = () => volume.root.traverse(part => {
+    if (part.userData.floorLight) part.visible = !!webgl && floorShown
+  })
+  const focusPoint = () => stand.position.clone().setY(stand.position.y + effect.focus * U)
+  const showFlat = () => addFlat(studio.scene, effect.sheet, !!webgl, invalidate, onError)
+  function refreshShadows() {
+    if (webgl) webgl.shadowMap.needsUpdate = true
+  }
 
   function requestDraw() {
     if (!frame) frame = requestAnimationFrame(draw)
@@ -105,7 +120,7 @@ export function mountViewport(host: HTMLDivElement, onError: (message: string) =
   }
   function setView(preset: ViewPreset) {
     stopInput()
-    controls.target.copy(volume.root.position)
+    controls.target.copy(focusPoint())
     camera.position.copy(controls.target).addScaledVector(offsets[preset], Math.max(1, 1.25 / camera.aspect))
     controls.update()
     focusDistance = camera.position.distanceTo(controls.target)
@@ -175,17 +190,41 @@ export function mountViewport(host: HTMLDivElement, onError: (message: string) =
 
   return {
     setMode, setView,
-    setPortalVersion(next: PortalVersion) {
+    setVersion(next: EffectVersion) {
       if (next === 'flat' && !flat) {
-        flat = addPortal(studio.scene, !!webgl, invalidate, onError)
+        flat = showFlat()
         volume.root.visible = false
       } else if (next === 'volume' && flat) {
         flat.dispose()
         flat = null
         volume.root.visible = true
       }
+      refreshShadows()
       invalidate()
     },
+    /** Swap the effect in place, keeping the version shown, the time and the camera's framing. */
+    setEffect(key: string) {
+      const next = sceneEffects.find(item => item.key === key)
+      if (!next || next === effect) return
+      const before = focusPoint().y
+      volume.dispose()
+      effect = next
+      volume = effect.create(!!webgl)
+      stand.add(volume.root)
+      lightFloor()
+      if (flat) {
+        flat.dispose()
+        flat = showFlat()
+        volume.root.visible = false
+      }
+      const rise = focusPoint().y - before
+      camera.position.y += rise
+      controls.target.y += rise
+      if (controls.enabled) controls.update()
+      refreshShadows()
+      invalidate()
+    },
+    setDark(value: boolean) { studio.setDark(value); invalidate() },
     setPlaying(value: boolean) {
       if (value === playing) return
       const now = performance.now()
@@ -199,7 +238,14 @@ export function mountViewport(host: HTMLDivElement, onError: (message: string) =
       camera.updateProjectionMatrix()
       invalidate()
     },
-    setGrid(visible: boolean) { studio.grid.visible = visible; invalidate() },
+    setGrid(visible: boolean) { studio.setGrid(visible); invalidate() },
+    hasFloor: studio.hasFloor,
+    setFloor(visible: boolean) {
+      floorShown = visible
+      studio.setFloor(visible)
+      lightFloor()
+      invalidate()
+    },
     dispose() {
       events.abort()
       stopInput()

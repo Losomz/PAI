@@ -29,6 +29,12 @@ npm run dev
 
 完整上游仓库位于 `tools/pixelfx/upstream`。在该目录运行 `node tools/render.mjs fire/flamethrower --sheet` 即可直接使用官方命令。Agent 导出会返回精灵图 PNG、帧数据 JSON 和多帧预览图 `contact.png`。[版本与许可](tools/pixelfx/UPSTREAM.md)
 
+## 3D 场景
+
+很多 PixelFX 特效先在代码里算出 3D 位置，再压扁成 2D：倾斜的光环分前后两半来画，球面按朝向决定明暗。**3D 场景** 把这类特效改写成真实的几何体，可以环绕、漫游和调整视野，从任意角度观察。目前有 **传送门**、**全息投影** 和 **奥术法球** 三个。**原版 2D** 会把原版精灵图立在同一位置，方便对比。场景默认使用 PixelFX 自带的夜色和石地背景，发光特效在这种背景下最接近原作；关闭 **暗场** 可切换到浅色背景，**地板** 和 **网格** 可以分别隐藏。
+
+每个立体版本都在 `frontend/src/features/scene/effects/` 下，使用原版的像素尺寸，按 0.04 个场景单位换算 1 像素，所以两个版本大小一致。新增特效时，先参照 `kit.ts` 编写立体版本，在 `registry.ts` 和 `scripts/bake-scene-effects.mjs` 的列表中各登记一次，然后运行 `node scripts/bake-scene-effects.mjs <目录名>` 生成原版对照用的精灵图。
+
 ## 连接 Agent
 
 在支持 MCP 的客户端中注册 stdio 服务。开发目录示例：

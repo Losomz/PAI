@@ -1,0 +1,16 @@
+{
+  "id": "arcane/arcane-orb",
+  "name": "Arcane orb",
+  "fps": 30,
+  "loop": true,
+  "frames": 72,
+  "frameSize": [
+    180,
+    156
+  ],
+  "pivot": [
+    90,
+    126
+  ],
+  "columns": 8
+}

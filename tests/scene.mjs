@@ -44,7 +44,7 @@ export async function checkScene(page) {
   let playing = await frame()
   while (portalPixels(playing, initial) < 80 && Date.now() < deadline) playing = await frame()
   assert.ok(portalPixels(playing, initial) > 80, 'the portal animates with the camera still')
-  await page.getByRole('button', { name: '暂停传送门' }).click()
+  await page.getByRole('button', { name: '暂停特效' }).click()
   const home = await frame()
   assert.equal(portalPixels(await frame(), home), 0, 'pause holds the portal frame')
   if (process.env.PAI_SCENE_SCREENSHOT) await page.screenshot({ path: process.env.PAI_SCENE_SCREENSHOT })
@@ -102,10 +102,19 @@ export async function checkScene(page) {
   await grid.click()
   assert.equal(await grid.getAttribute('aria-pressed'), 'false')
   await grid.click()
+  // Only WebGL draws a floor, so only it offers to hide one.
+  const floor = page.getByRole('button', { name: '地板', exact: true })
+  if (await floor.count()) {
+    const floored = await frame()
+    await floor.click()
+    assert.equal(await floor.getAttribute('aria-pressed'), 'false')
+    assert.ok(changedFraction(floored, await frame()) > 0.05, 'the floor can be hidden')
+    await floor.click()
+  }
   await page.getByRole('button', { name: '环绕', exact: true }).click()
   await page.getByRole('button', { name: '重置视角' }).click()
   assert.ok(changedFraction(home, await frame()) < 0.01, 'reset recovers the original perspective')
-  await page.getByRole('button', { name: '播放传送门' }).click()
+  await page.getByRole('button', { name: '播放特效' }).click()
   const resumeDeadline = Date.now() + 4000
   let resumed = await frame()
   while (portalPixels(resumed, home) < 80 && Date.now() < resumeDeadline) resumed = await frame()
@@ -118,5 +127,40 @@ export async function checkScene(page) {
   let flatPlaying = await frame()
   while (portalPixels(flatPlaying, flatStart) < 80 && Date.now() < flatDeadline) flatPlaying = await frame()
   assert.ok(portalPixels(flatStart) > 500 && portalPixels(flatPlaying, flatStart) > 80, 'the original still plays after switching')
+  await checkEffects(page, frame)
   await page.locator('.arco-menu-item').filter({ hasText: '首页' }).click()
+}
+
+// The other effects: each replaces the portal on the same spot, plays in 3D and as its original, and both studios
+// show them. Waits for a frame that differs, since the effects only redraw on their own frame steps.
+async function checkEffects(page, frame) {
+  const button = name => page.getByRole('button', { name, exact: true })
+  const until = async (previous, fraction, ms) => {
+    const deadline = Date.now() + ms
+    let next = await frame()
+    while (changedFraction(previous, next) <= fraction && Date.now() < deadline) next = await frame()
+    return next
+  }
+  await button('立体 3D').click()
+  await button('正面').click()
+  const portal = await frame()
+  for (const name of ['全息投影', '奥术法球']) {
+    await button(name).click()
+    assert.equal(await button(name).getAttribute('aria-pressed'), 'true')
+    const shown = await until(portal, 0.02, 3000)
+    assert.ok(changedFraction(portal, shown) > 0.02, `${name} replaces the portal`)
+    assert.ok(changedFraction(shown, await until(shown, 0.002, 3000)) > 0.002, `${name} animates in 3D`)
+    await button('原版 2D').click()
+    const original = await until(shown, 0.01, 6000)
+    assert.ok(changedFraction(shown, original) > 0.01, `${name} has its original for comparison`)
+    await button('立体 3D').click()
+  }
+  const dark = await frame()
+  assert.equal(await button('暗场').getAttribute('aria-pressed'), 'true', 'the dark studio is the default')
+  await button('暗场').click()
+  assert.equal(await button('暗场').getAttribute('aria-pressed'), 'false')
+  assert.ok(changedFraction(dark, await frame()) > 0.3, 'the light studio replaces the dark one')
+  await button('暗场').click()
+  await button('传送门').click()
+  assert.ok(portalPixels(await until(dark, 0.02, 3000)) > 500, 'switching back restores the portal')
 }
