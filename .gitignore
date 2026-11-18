@@ -4,6 +4,7 @@ target/
 *.local
 .DS_Store
 tauri-dev.log
+release/
 
 # Tauri updater signing keys (never commit generated key files)
 src-tauri/*.key

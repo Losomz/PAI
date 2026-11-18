@@ -1,5 +1,3 @@
-import { check } from '@tauri-apps/plugin-updater'
-import { relaunch } from '@tauri-apps/plugin-process'
 import { Modal, Progress, Message } from '@arco-design/web-react'
 import { useState, useEffect, useCallback, useRef } from 'react'
 
@@ -10,9 +8,9 @@ export function useUpdater() {
 
   const doUpdate = useCallback(async (silent = true) => {
     try {
-      const update = await check()
+      const update = await window.pai.checkUpdate()
 
-      if (!update?.available) {
+      if (!update) {
         if (!silent) {
           Message.info('当前已是最新版本')
         }
@@ -35,30 +33,12 @@ export function useUpdater() {
 
       setProgress(0)
       setDownloading(true)
-      let downloaded = 0
-      let total = 0
-
-      await update.downloadAndInstall((event) => {
-        switch (event.event) {
-          case 'Started':
-            total = event.data.contentLength ?? 0
-            break
-          case 'Progress':
-            downloaded += event.data.chunkLength
-            if (total > 0) {
-              setProgress(Math.round((downloaded / total) * 100))
-            }
-            break
-          case 'Finished':
-            break
-        }
-      })
-
-      setDownloading(false)
-      await relaunch()
+      const unsubscribe = window.pai.onProgress(setProgress)
+      try { await window.pai.installUpdate() }
+      finally { unsubscribe(); setDownloading(false) }
     } catch (e) {
       console.error('更新检查失败:', e)
-      Message.error('更新检查失败: ' + String(e))
+      if (!silent) Message.error('更新检查失败: ' + String(e))
       setDownloading(false)
     }
   }, [])

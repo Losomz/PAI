@@ -1,12 +1,70 @@
 {
-  "name": "pai",
+  "name": "pai-toolbox",
+  "productName": "PAI",
+  "version": "0.0.18-beta.3",
+  "description": "PAI 个人 AI 工具箱",
+  "author": "PAI",
   "private": true,
+  "workspaces": ["tools/animation"],
+  "main": "desktop/main.cjs",
   "scripts": {
-    "dev": "npm --prefix frontend run dev",
-    "build": "npm --prefix frontend run build",
-    "tauri": "tauri"
+    "dev": "node scripts/dev.mjs",
+    "start": "electron .",
+    "build": "npm --prefix frontend run build && node scripts/build-agent.mjs",
+    "pack": "npm run build && install-electron && electron-builder --win nsis --publish never",
+    "test": "node --test tests/*.test.mjs",
+    "test:packaged": "node tests/packaged.mjs",
+    "mcp": "node tools/mcp.mjs",
+    "signer": "tauri signer"
   },
   "devDependencies": {
-    "@tauri-apps/cli": "^2"
+    "@modelcontextprotocol/sdk": "^1.25.0",
+    "@tauri-apps/cli": "^2",
+    "electron": "45.3.4",
+    "electron-builder": "26.18.0",
+    "esbuild": "^0.25.10",
+    "playwright-core": "^1.65.1",
+    "zod": "^3.25.76"
+  },
+  "dependencies": {
+    "semver": "^7.7.0"
+  },
+  "build": {
+    "appId": "com.pai.toolbox",
+    "directories": {
+      "output": "release/windows"
+    },
+    "electronDist": "node_modules/electron/dist",
+    "files": [
+      "desktop/**",
+      "frontend/dist/**",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "tools/pixelfx",
+        "to": "tools/pixelfx",
+        "filter": [
+          "index.mjs", "animation-provider.mjs", "player.mjs", "UPSTREAM.md",
+          "upstream/src/**/*", "upstream/tools/**/*", "upstream/gallery/**/*",
+          "!upstream/gallery/fonts/*.woff2",
+          "upstream/package.json", "upstream/LICENSE", "upstream/NOTICE.md", "upstream/README.md"
+        ]
+      },
+      {
+        "from": "dist/agent",
+        "to": "tools"
+      }
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "build/icon.ico",
+      "artifactName": "PAI-${version}-Setup.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true
+    }
   }
 }

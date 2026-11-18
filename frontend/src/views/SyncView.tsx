@@ -1,6 +1,4 @@
 import { useState, useEffect, useMemo } from 'react'
-import { invoke } from '@tauri-apps/api/core'
-import { open } from '@tauri-apps/plugin-dialog'
 import {
   Card,
   Space,
@@ -90,7 +88,7 @@ export default function SyncView() {
   async function loadRecords() {
     setLoading(true)
     try {
-      const list = await invoke<SyncRecord[]>('list_sync_records')
+      const list = await window.pai.listRecords()
       setRecords(list)
     } catch (e) {
       console.error('加载记录失败:', e)
@@ -177,7 +175,7 @@ export default function SyncView() {
 
     setSaving(true)
     try {
-      await invoke<SyncRecord>('save_sync_record', {
+      await window.pai.saveRecord({
         id: editingId,
         name,
         fromPath,
@@ -197,7 +195,7 @@ export default function SyncView() {
 
   async function deleteRecord(id: string) {
     try {
-      await invoke('delete_sync_record', { id })
+      await window.pai.deleteRecord(id)
       Message.success('已删除')
       await loadRecords()
     } catch (e) {
@@ -207,11 +205,7 @@ export default function SyncView() {
 
   async function selectDirectory() {
     try {
-      const selected = await open({
-        directory: true,
-        multiple: false,
-        title: '选择目标目录',
-      })
+      const selected = await window.pai.directory('选择目标目录')
       if (selected && typeof selected === 'string') {
         setFormTo(selected)
       }
@@ -222,11 +216,7 @@ export default function SyncView() {
 
   async function selectSourceDirectory() {
     try {
-      const selected = await open({
-        directory: true,
-        multiple: false,
-        title: '选择源目录',
-      })
+      const selected = await window.pai.directory('选择源目录')
       if (selected && typeof selected === 'string') {
         setFormRepoUrl(selected)
       }
@@ -238,13 +228,7 @@ export default function SyncView() {
   async function syncRecord(record: SyncRecord, mode: 'full' | 'incremental') {
     setSyncingId(record.id)
     try {
-      const result = await invoke<{
-        from: string
-        to: string
-        skipped: boolean
-        error?: string
-        files_copied: number
-      }>('sync_direct', {
+      const result = await window.pai.sync({
         fromPath: record.from_path,
         toPath: record.to_path,
         refName: record.ref_name,
