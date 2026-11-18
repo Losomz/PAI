@@ -4,19 +4,15 @@ import {
 } from 'three'
 import { CSS3DObject, CSS3DRenderer } from 'three/addons/renderers/CSS3DRenderer.js'
 import { SVGObject } from 'three/addons/renderers/SVGRenderer.js'
-import atlasUrl from './effects/portal/portal.png'
-import spec from './effects/portal/portal.json'
+import { U } from './effects/kit'
+import type { Sheet } from './effects/registry'
 
-const [width, height] = spec.frameSize
-const unitsPerPixel = 0.04
-export const portalFoot = new Vector3(2.75, 0.045, 1.8)
-const center = portalFoot.clone().add(new Vector3(
-  (width / 2 - spec.pivot[0]) * unitsPerPixel, (spec.pivot[1] - height / 2) * unitsPerPixel, 0,
-))
+// Where every effect stands: its pivot, on the floor beside the reference objects.
+export const effectFoot = new Vector3(2.75, 0.045, 1.8)
 
 // SVGRenderer does not texture meshes. Depth-sort an HTML canvas alongside its geometry
 // and use the same perspective camera to project the canvas in software-rendered scenes.
-function addSoftwarePlane(scene: Scene, canvas: HTMLCanvasElement) {
+function addSoftwarePlane(scene: Scene, canvas: HTMLCanvasElement, center: Vector3) {
   const projector = new CSS3DRenderer()
   const ns = 'http://www.w3.org/2000/svg'
   const layer = document.createElementNS(ns, 'foreignObject')
@@ -27,7 +23,7 @@ function addSoftwarePlane(scene: Scene, canvas: HTMLCanvasElement) {
   anchor.position.copy(center)
   const plane = new CSS3DObject(canvas)
   plane.position.copy(center)
-  plane.scale.setScalar(unitsPerPixel)
+  plane.scale.setScalar(U)
   canvas.style.imageRendering = 'pixelated'
   canvas.style.pointerEvents = 'none'
   scene.add(anchor, plane)
@@ -46,12 +42,17 @@ function addSoftwarePlane(scene: Scene, canvas: HTMLCanvasElement) {
   }
 }
 
-export function addPortal(scene: Scene, hardware: boolean, onLoad: () => void, onError: (message: string) => void) {
+/** The original effect as a flat card standing at its pivot, playing its baked sprite sheet. */
+export function addFlat(scene: Scene, sheet: Sheet, hardware: boolean, onLoad: () => void, onError: (message: string) => void) {
+  const { spec } = sheet, [width, height] = spec.frameSize
+  const center = effectFoot.clone().add(new Vector3(
+    (width / 2 - spec.pivot[0]) * U, (spec.pivot[1] - height / 2) * U, 0,
+  ))
   const canvas = document.createElement('canvas')
   canvas.width = width
   canvas.height = height
   const context = canvas.getContext('2d')
-  if (!context) throw Error('无法读取传送门动画帧')
+  if (!context) throw Error('无法读取特效动画帧')
   const texture = hardware ? new CanvasTexture(canvas) : null
   let mesh: Mesh<PlaneGeometry, MeshBasicMaterial> | undefined
   if (texture) {
@@ -60,16 +61,16 @@ export function addPortal(scene: Scene, hardware: boolean, onLoad: () => void, o
     texture.generateMipmaps = false
     const material = new MeshBasicMaterial({ map: texture, side: DoubleSide, transparent: true,
       depthWrite: false, toneMapped: false, fog: false })
-    mesh = new Mesh(new PlaneGeometry(width * unitsPerPixel, height * unitsPerPixel), material)
+    mesh = new Mesh(new PlaneGeometry(width * U, height * U), material)
     mesh.position.copy(center)
     scene.add(mesh)
   }
-  const software = hardware ? null : addSoftwarePlane(scene, canvas)
+  const software = hardware ? null : addSoftwarePlane(scene, canvas, center)
   const image = new Image()
   let ready = false, lastFrame = -1
   image.onload = () => { ready = true; onLoad() }
-  image.onerror = () => onError('无法加载传送门精灵图')
-  image.src = atlasUrl
+  image.onerror = () => onError('无法加载特效精灵图')
+  image.src = sheet.url
   return {
     project: software?.project,
     get ready() { return ready },
