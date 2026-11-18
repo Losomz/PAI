@@ -5,6 +5,7 @@ import {
   IconHome,
   IconApps,
   IconPlayCircle,
+  IconCompass,
   IconSync,
   IconLeft,
   IconRight,
@@ -18,6 +19,7 @@ const { Sider, Content } = Layout
 const menuItems = [
   { key: '/', label: '首页', icon: <IconHome /> },
   { key: '/animations', label: '动画库', icon: <IconPlayCircle /> },
+  { key: '/scene', label: '3D 场景', icon: <IconCompass /> },
   { key: '/pixelfx', label: 'PixelFX 原版画廊', icon: <IconApps /> },
   { key: '/sync', label: '同步记录', icon: <IconSync /> },
 ]
@@ -93,7 +95,7 @@ export default function MainLayout() {
         />
       </Drawer>
       <Layout>
-        <Content style={{ padding: ['/pixelfx', '/animations'].includes(location.pathname) ? 0 : 24, minWidth: 0, overflow: 'auto' }}>
+        <Content style={{ padding: ['/pixelfx', '/animations', '/scene'].includes(location.pathname) ? 0 : 24, minWidth: 0, overflow: 'auto' }}>
           <Outlet />
         </Content>
       </Layout>

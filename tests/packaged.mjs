@@ -6,6 +6,7 @@ import os from 'node:os'
 import { _electron } from 'playwright-core'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
+import { checkScene } from './scene.mjs'
 
 const executable = path.resolve(process.argv[2] || 'release/windows/win-unpacked/PAI.exe')
 const scratch = await fs.mkdtemp(path.join(os.tmpdir(), 'pai-packaged-'))
@@ -60,6 +61,7 @@ try {
   const errors = []
   page.on('pageerror', e => errors.push(e.message))
   await page.route(/^https?:\/\//, route => route.abort())
+  await checkScene(page)
   await page.getByRole('link', { name: /PixelFX/ }).click()
   const gallery = page.frameLocator('iframe[title="PixelFX 官方画廊"]')
   const search = gallery.getByRole('searchbox', { name: 'Search effects' })

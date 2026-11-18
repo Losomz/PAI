@@ -1,0 +1,16 @@
+{
+  "id": "arcane/portal",
+  "name": "Portal",
+  "fps": 30,
+  "loop": true,
+  "frames": 72,
+  "frameSize": [
+    360,
+    324
+  ],
+  "pivot": [
+    180,
+    210
+  ],
+  "columns": 9
+}

@@ -13,6 +13,7 @@ export default function HomeView() {
       <h1>PAI</h1>
       <p>个人AI工具箱</p>
       <Link to="/animations">打开动画库 →</Link>
+      <Link to="/scene">打开 3D 场景 →</Link>
       <Link to="/pixelfx">浏览 PixelFX 原版画廊 →</Link>
 
       <div style={{ marginTop: 'auto', paddingTop: 40, textAlign: 'center', color: '#999' }}>
