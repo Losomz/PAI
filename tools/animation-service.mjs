@@ -26,12 +26,14 @@ export function library() {
   return storage
 }
 
-function render({ code, template }, validateOnly, signal) {
+// Previews keep the light that spills past an effect's canvas; exports are cut to the canvas, as PixelFX's are.
+const previewRoom = 64
+function render({ code, template }, validateOnly, signal, room = 0) {
   checkCode(code)
   return new Promise((resolve, reject) => {
     if (signal?.aborted) return reject(Error('预览已取消'))
     const worker = new Worker(new URL('./animation-worker.mjs', import.meta.url), {
-      workerData: { code, template, validateOnly }, execArgv: [],
+      workerData: { code, template, validateOnly, room }, execArgv: [],
     })
     const abort = () => { reject(Error('预览已取消')); void worker.terminate() }
     const timer = setTimeout(() => { reject(Error('动画运行超时')); void worker.terminate() }, 100_000)
@@ -72,7 +74,7 @@ export async function updateAnimation({ id, revision, code }) {
 }
 export async function previewAnimation(id, revision, signal) {
   const record = library().current(id, revision)
-  const { png, ...info } = await render(record, false, signal)
+  const { png, ...info } = await render(record, false, signal, previewRoom)
   return { ...info, image: 'data:image/png;base64,' + Buffer.from(png).toString('base64') }
 }
 export async function exportAnimation(id, outputDir, revision) {

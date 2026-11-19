@@ -46,8 +46,7 @@
         "to": "tools/pixelfx",
         "filter": [
           "index.mjs", "animation-provider.mjs", "player.mjs", "UPSTREAM.md",
-          "upstream/src/**/*", "upstream/tools/**/*", "upstream/gallery/**/*",
-          "!upstream/gallery/fonts/*.woff2",
+          "upstream/src/**/*", "upstream/tools/**/*",
           "upstream/package.json", "upstream/LICENSE", "upstream/NOTICE.md", "upstream/README.md"
         ]
       },

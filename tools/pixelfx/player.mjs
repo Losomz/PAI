@@ -1,6 +1,11 @@
 import { createAct, actBounds, actTiming, createFx, createFrame, clearFrame, composite } from './upstream/src/core/index.js'
 
-export function createPlayer(effect) {
+/**
+ * Plays an effect frame by frame. `room` draws that many pixels round its canvas too, for light that spills past
+ * the edge (the canvas stays where info.canvas says): none for effects that fill a screen, or for ones whose
+ * frames would grow too big for a sprite sheet.
+ */
+export function createPlayer(effect, room = 0) {
   const { meta } = effect
   let [width, height] = meta.size
   let [x, y] = meta.origin
@@ -15,11 +20,15 @@ export function createPlayer(effect) {
     duration += timing.windup + timing.recovery + timing.hits.reduce((sum, hit) => sum + hit.freeze, 0)
   }
   const fps = meta.fps ?? 30
-  const frame = createFrame(width, height)
-  const rgba = new Uint8ClampedArray(width * height * 4)
+  const screen = width >= 320 && Math.abs(width / height - 16 / 9) < 0.05
+  const frames = Math.round(duration * fps) + 1
+  const m = screen || (width + 2 * room) * (height + 2 * room) * frames > 40_000_000 ? 0 : room
+  const frame = createFrame(width + 2 * m, height + 2 * m, -m, -m)
+  const rgba = new Uint8ClampedArray((width + 2 * m) * (height + 2 * m) * 4)
   const instance = effect.act ? createAct(effect, { x, y }) : createFx(effect, { x, y })
   return {
-    info: { width, height, fps, duration, loop: !!meta.loop, name: meta.name, origin: [x, y] },
+    info: { width: width + 2 * m, height: height + 2 * m, fps, duration, loop: !!meta.loop, name: meta.name,
+      origin: [x + m, y + m], canvas: [m, m, width, height] },
     draw(index) {
       if (index) instance.update(1 / fps)
       instance.draw(clearFrame(frame))

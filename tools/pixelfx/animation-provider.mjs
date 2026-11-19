@@ -23,6 +23,6 @@ export function pixelEnvironment(id, code) {
       return fs.readFileSync(new URL('./' + name, import.meta.url), 'utf8')
     },
     // Only modules imported from the pinned distribution can take the native fast path.
-    trustedPlayer: code === original ? () => createPlayer(effects[id]) : undefined,
+    trustedPlayer: code === original ? room => createPlayer(effects[id], room) : undefined,
   }
 }

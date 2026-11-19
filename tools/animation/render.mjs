@@ -11,10 +11,16 @@ export function nativeEnvironment() {
 
 function collect(info, draw, validateOnly) {
   const { width, height, fps, duration, loop, name } = info
-  // Where the animation stands on the ground, in canvas pixels; the 3D scene puts this point on the floor.
+  // Where the animation stands on the ground, in canvas pixels; the effect maker stands it on this point.
   const origin = Array.isArray(info.origin) && info.origin.length === 2 && info.origin.every(Number.isFinite)
     ? info.origin.map(Number) : null
-  if (![width, height].every(n => Number.isInteger(n) && n > 0 && n <= 1024) ||
+  // The animation's own canvas, inside a frame that may have room round it for light that spills past the edge.
+  const canvas = Array.isArray(info.canvas) && info.canvas.length === 4 && info.canvas.every(Number.isInteger)
+    ? info.canvas : [0, 0, width, height]
+  const [left, top, size, rise] = canvas
+  if (![size, rise].every(n => Number.isInteger(n) && n > 0 && n <= 1024) ||
+      ![width, height].every(n => Number.isInteger(n) && n <= 1280) || left < 0 || top < 0 ||
+      left + size > width || top + rise > height ||
       !Number.isInteger(fps) || fps < 1 || fps > 60 || !Number.isFinite(duration) || duration <= 0 || duration > 60) {
     throw Error('请检查 meta 中的画布尺寸（1–1024）、帧率（1–60）与时长（最多 60 秒）')
   }
@@ -22,7 +28,7 @@ function collect(info, draw, validateOnly) {
   if (width * height * frames > 48_000_000) throw Error('精灵图过大，请缩小画布或减少帧数')
   const columns = Math.min(frames, Math.ceil(Math.sqrt(frames * height / width)))
   const rows = Math.ceil(frames / columns)
-  const meta = { width, height, fps, frames, columns, duration, loop: !!loop, name, origin }
+  const meta = { width, height, fps, frames, columns, duration, loop: !!loop, name, origin, canvas }
   const sheet = validateOnly ? null : new pngjs.PNG({ width: columns * width, height: rows * height })
   for (let i = 0; i < (validateOnly ? 1 : frames); i++) {
     draw(i, bytes => {
@@ -37,10 +43,12 @@ function collect(info, draw, validateOnly) {
   return sheet ? { ...meta, png: pngjs.PNG.sync.write(sheet, { deflateLevel: 3, filterType: 1 }) } : meta
 }
 
-export async function renderCode(code, environment, validateOnly = false) {
+/** `room` asks a PixelFX player to draw that many pixels round the canvas as well (see its createPlayer). */
+export async function renderCode(code, environment, validateOnly = false, room = 0) {
   checkCode(code)
+  room = Number.isInteger(room) && room > 0 ? Math.min(room, 128) : 0
   if (environment.trustedPlayer) {
-    const player = environment.trustedPlayer()
+    const player = environment.trustedPlayer(room)
     return collect(player.info, (i, use) => use(new Uint8Array(player.draw(i))), validateOnly)
   }
   const engine = await newQuickJSWASMModuleFromVariant(variant)
@@ -64,9 +72,10 @@ export async function renderCode(code, environment, validateOnly = false) {
   const vm = runtime.newContext()
   try {
     const program = 'import * as entry from "@entry"; import {createPlayer} from "@driver";' +
-      'const player = createPlayer(entry); const {width,height,fps,duration,loop,name} = player.info;' +
+      `const player = createPlayer(entry, ${room}); const {width,height,fps,duration,loop,name} = player.info;` +
       'const origin = Array.isArray(player.info.origin) ? [+player.info.origin[0], +player.info.origin[1]] : null;' +
-      'export const info = {width:+width,height:+height,fps:+fps,duration:+duration,loop:!!loop,name:String(name ?? "").slice(0,120),origin};' +
+      'const canvas = Array.isArray(player.info.canvas) ? player.info.canvas.slice(0, 4).map(Number) : null;' +
+      'export const info = {width:+width,height:+height,fps:+fps,duration:+duration,loop:!!loop,name:String(name ?? "").slice(0,120),origin,canvas};' +
       'export function frame(index) {return player.draw(index)}'
     return Scope.withScope(scope => {
       const exports = scope.manage(vm.unwrapResult(vm.evalCode(program, 'main.mjs', { type: 'module' })))

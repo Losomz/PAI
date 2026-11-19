@@ -3,9 +3,7 @@ import { Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { Layout, Menu, Drawer } from '@arco-design/web-react'
 import {
   IconHome,
-  IconApps,
   IconPlayCircle,
-  IconCompass,
   IconSync,
   IconLeft,
   IconRight,
@@ -18,9 +16,7 @@ const { Sider, Content } = Layout
 
 const menuItems = [
   { key: '/', label: '首页', icon: <IconHome /> },
-  { key: '/animations', label: '动画库', icon: <IconPlayCircle /> },
-  { key: '/scene', label: '3D 场景', icon: <IconCompass /> },
-  { key: '/pixelfx', label: 'PixelFX 原版画廊', icon: <IconApps /> },
+  { key: '/maker', label: '特效制作器', icon: <IconPlayCircle /> },
   { key: '/sync', label: '同步记录', icon: <IconSync /> },
 ]
 
@@ -95,7 +91,7 @@ export default function MainLayout() {
         />
       </Drawer>
       <Layout>
-        <Content style={{ padding: ['/pixelfx', '/animations', '/scene'].includes(location.pathname) ? 0 : 24, minWidth: 0, overflow: 'auto' }}>
+        <Content style={{ padding: location.pathname === '/maker' ? 0 : 24, minWidth: 0, overflow: 'auto' }}>
           <Outlet />
         </Content>
       </Layout>

@@ -7,6 +7,8 @@ export type Preview = {
   loop: boolean; duration: number; name: string; image: string
   /** Where it stands on the ground, in canvas pixels, when the animation says. */
   origin: [number, number] | null
+  /** The animation's own canvas in the frame [left, top, width, height]; the rest is light spilling past it. */
+  canvas: [number, number, number, number] | null
 }
 export interface AnimationAPI {
   list(): Promise<AnimationInventory>

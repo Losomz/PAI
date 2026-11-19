@@ -22,19 +22,17 @@ export function createStudio(hardware: boolean) {
   const geometries: BufferGeometry[] = []
   const materials: Material[] = []
 
-  // The vector renderer has no shadow maps, and the grid alone shows where the floor is.
+  // The vector renderer draws no floor; the grid alone shows where it is.
   let ground: MeshStandardMaterial | null = null, floor: Mesh | null = null
   if (hardware) {
     const geometry = new PlaneGeometry(140, 140)
-    // Matte, so the effects' lights pool on it instead of glaring off it.
+    // Matte, so it reads as stone under the lights.
     ground = new MeshStandardMaterial({ roughness: 0.95, depthWrite: false })
     floor = new Mesh(geometry, ground)
-    // A backdrop drawn first and hiding nothing: if it wrote depth it would cut every glow sprite standing on it
-    // along a straight line, splitting the floor into a lit half and a dark one.
+    // A backdrop drawn first and hiding nothing, so nothing standing on it is cut off where it meets the floor.
     floor.renderOrder = -3
     floor.position.y = -0.018
     floor.rotation.x = -Math.PI / 2
-    floor.receiveShadow = true
     scene.add(floor)
     geometries.push(geometry)
     materials.push(ground)
@@ -57,12 +55,6 @@ export function createStudio(hardware: boolean) {
   scene.add(ambient)
   const key = new DirectionalLight('#fff0dd')
   key.position.set(-4, 8, 5)
-  key.castShadow = hardware
-  key.shadow.mapSize.set(1024, 1024)
-  Object.assign(key.shadow.camera, { left: -6, right: 6, top: 6, bottom: -6, near: 0.5, far: 24 })
-  key.shadow.camera.updateProjectionMatrix()
-  key.shadow.normalBias = 0.025
-  key.shadow.bias = -0.00025
   scene.add(key)
   const rim = new DirectionalLight('#d3ece9')
   rim.position.set(4, 5, -4)
@@ -94,7 +86,6 @@ export function createStudio(hardware: boolean) {
       if (floor) floor.visible = visible
     },
     dispose() {
-      key.shadow.dispose()
       for (const material of materials) material.dispose()
       for (const geometry of geometries) geometry.dispose()
       scene.clear()

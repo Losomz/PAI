@@ -1,7 +1,6 @@
-const { app, BrowserWindow, ipcMain, dialog, session, protocol } = require('electron')
+const { app, BrowserWindow, ipcMain, dialog, session } = require('electron')
 const path = require('node:path')
 const { pathToFileURL } = require('node:url')
-const gallery = require('./pixelfx.cjs')
 const { registerAnimations } = require('./animations.cjs')
 const sync = require('./sync.cjs')
 const updater = require('./updater.cjs')
@@ -9,13 +8,12 @@ const updater = require('./updater.cjs')
 const entry = pathToFileURL(path.join(__dirname, '../frontend/dist/index.html')).href
 const dev = !app.isPackaged && process.env.PAI_DEV === '1'
 const startUrl = dev ? 'http://127.0.0.1:5173/' : entry
-protocol.registerSchemesAsPrivileged([{ scheme: 'pixelfx', privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true } }])
 let window
 function createWindow() {
   window = new BrowserWindow({ width: 1220, height: 820, minWidth: 760, minHeight: 550,
     title: 'PAI · 个人工具箱', autoHideMenuBar: true,
     webPreferences: { preload: path.join(__dirname, 'preload.cjs'), sandbox: true, contextIsolation: true, nodeIntegration: false } })
-  gallery.enableGalleryActions(window)
+  window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
   window.webContents.on('will-navigate', (event, url) => { if (url.split('#')[0] !== startUrl) event.preventDefault() })
   window.on('closed', () => { window = null })
   return window.loadURL(startUrl)
@@ -36,10 +34,7 @@ if (!app.requestSingleInstanceLock()) app.quit()
 else {
   app.on('second-instance', () => { if (window?.isMinimized()) window.restore(); window?.focus() })
   app.whenReady().then(() => {
-    gallery.serveGallery()
-    session.defaultSession.setPermissionRequestHandler((wc, permission, callback, details) => {
-      callback(wc === window?.webContents && permission === 'clipboard-sanitized-write' && details.requestingUrl.startsWith(gallery.origin + '/'))
-    })
+    session.defaultSession.setPermissionRequestHandler((_wc, _permission, callback) => callback(false))
     handle('pai:version', () => app.getVersion())
     handle('pai:directory', directory)
     registerAnimations(handle, () => window, directory)

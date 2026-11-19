@@ -1,6 +1,6 @@
 # PAI 个人 AI 工具箱
 
-PAI 使用 Electron、React 和 TypeScript。桌面端提供可编辑源码的动画库、PixelFX 官方画廊、本地与 Git 仓库同步和 Windows 签名更新。Agent 可以通过 stdio MCP 独立管理和导出动画。
+PAI 使用 Electron、React 和 TypeScript。桌面端提供可编辑源码的特效制作器、本地与 Git 仓库同步和 Windows 签名更新。Agent 可以通过 stdio MCP 独立管理和导出动画。
 
 ## 运行与打包
 
@@ -15,31 +15,19 @@ npm run dev
 
 `npm run build` 构建离线界面和 MCP 入口，`npm start` 打开构建后的应用。`npm run pack` 或 `build.bat` 在 Windows 生成 `release/windows/PAI-<版本>-Setup.exe`。`npm test` 验证特效、MCP、同步和更新签名，`npm run test:packaged` 验证打包后的实际窗口和无界面导出。
 
-## 动画库
+## 特效制作器
 
-打开侧栏的 **动画库**。首次使用时会从 PixelFX 复制 244 个动画入口，每个作品有自己的目录，包含源码 `animation.js` 和记录名称及素材来源的 `animation.json`。**新建动画**生成可运行的 JS 模块，**从素材添加**可以恢复内置动画或为同一个素材创建独立版本。移除会把该作品移入库内的 `.trash`，重新启动后仍保留此次删减。
+打开侧栏的 **特效制作器**。首次使用时会从 PixelFX 复制 244 个特效，每个特效有自己的目录，包含源码 `animation.js` 和记录名称及素材来源的 `animation.json`。左侧可以按名称、ID 或分类查找。**新建特效** 生成可运行的 JS 模块，**从素材添加** 可以恢复内置特效或为同一个素材创建独立版本。移除会把特效移入库内的 `.trash`，重新启动后仍保留此次删减。
 
-默认库在 `~/.agentframework/animations`。把 **复制路径** 得到的文件路径交给 AI，它可以直接修改源码，桌面预览会自动刷新。正在修复的代码即使有语法错误，也能从 **源代码** 标签查看。若要把库放进自己的项目，可为桌面端和 MCP 设置同一个绝对路径环境变量 `PAI_ANIMATION_HOME`。
+特效立在一个 3D 场景的地板中央。**2D 视图** 用正交相机正对它，一个源像素对应整数个屏幕像素；拖动平移，滚轮按整数倍缩放。很多 PixelFX 特效的光晕会超出自己声明的画布，预览会在画布四周多渲染 64 像素，让光自然散开；导出的精灵图和 PixelFX 一样，裁在画布范围内。**3D 视图** 可以环绕、漫游和调整视野，从侧面、背面或俯视等角度看同一张画面。下方可以播放、暂停和逐帧拖动，**重置视角** 会让特效重新完整居中。场景默认使用 PixelFX 的夜色和石地，关闭 **暗场** 可切换到浅色背景，**地板** 和 **网格** 可以分别隐藏。场景按 0.04 个单位换算 1 像素，以后给某个特效做立体版本，可以按同样的比例放进这个场景。
 
-独立 Node 模块位于 `tools/animation`，提供文件库、隔离执行和 PNG 精灵图导出。自建动画导出 `meta`（包括 `name`、`size`、`fps`、`duration`、`loop`，可选落脚点 `origin`）及 `draw(rgba, time, { width, height })`。每次绘制收到透明的 RGBA8 帧，时间以秒计。PixelFX 副本保留原有的 `draw`、`create`、`act` 接口和相对导入。`animation_read` 返回的 `templatePath` 指向原版入口，可用于查阅依赖。AI 编辑 `codePath` 指向的个人副本。
+默认库在 `~/.agentframework/animations`。把 **复制路径** 得到的文件路径交给 AI，它可以直接修改源码，保存后预览会自动重新渲染。正在修复的代码即使有语法错误，也能从 **源代码** 标签查看。若要把库放进自己的项目，可为桌面端和 MCP 设置同一个绝对路径环境变量 `PAI_ANIMATION_HOME`。
+
+独立 Node 模块位于 `tools/animation`，提供文件库、隔离执行和 PNG 精灵图导出。自建动画导出 `meta`（包括 `name`、`size`、`fps`、`duration`、`loop`，可选落脚点 `origin`，即特效站在地板上的那个像素，默认是底边中点）及 `draw(rgba, time, { width, height })`。每次绘制收到透明的 RGBA8 帧，时间以秒计。PixelFX 副本保留原有的 `draw`、`create`、`act` 接口和相对导入。`animation_read` 返回的 `templatePath` 指向原版入口，可用于查阅依赖。AI 编辑 `codePath` 指向的个人副本。
 
 ## PixelFX
 
-打开侧栏的 **PixelFX 原版画廊** 即可使用原版英文画廊。可以搜索或按分类浏览，点击特效查看播放、调色板和镜像等控件。点击 **sprite sheet** 生成精灵图，右键图片可保存 PNG。动画和精灵图均可离线生成。
-
 完整上游仓库位于 `tools/pixelfx/upstream`。在该目录运行 `node tools/render.mjs fire/flamethrower --sheet` 即可直接使用官方命令。Agent 导出会返回精灵图 PNG、帧数据 JSON 和多帧预览图 `contact.png`。[版本与许可](tools/pixelfx/UPSTREAM.md)
-
-## 3D 场景
-
-**3D 场景** 可以播放动画库里的任何动画，也能查看有立体版本的特效的 3D 效果。从顶部的特效列表搜索名称或 ID，或在动画库中点击 **在场景中查看**。源码保存后，场景会自动重新渲染。
-
-**2D 视图** 用正交相机正对原版，一个源像素对应整数个屏幕像素，看到的就是导出的精灵图。拖动平移，滚轮按整数倍缩放，**重置视角** 会重新让动画完整居中。
-
-很多 PixelFX 特效先在代码里算出 3D 位置，再压扁成 2D：倾斜的光环分前后两半来画，球面按朝向决定明暗。**3D 视图** 把这类特效改写成真实的几何体，可以环绕、漫游和调整视野，从任意角度观察。目前有 **传送门**、**全息投影** 和 **奥术法球** 三个，在列表中标有「立体」。**原版** 和 **立体版** 可以在两个视图中随时切换对比：2D 视图里看立体版能检查移植是否忠实，3D 视图里原版会立在同一位置。没有立体版本的动画在 3D 视图中显示为立着的原版。
-
-动画以 `meta.origin`（画布内的像素坐标）作为落脚点站在地板中央；没有声明时以底边中点为准。场景默认使用 PixelFX 自带的夜色和石地背景，发光特效在这种背景下最接近原作；关闭 **暗场** 可切换到浅色背景，**地板** 和 **网格** 可以分别隐藏。
-
-每个立体版本都在 `frontend/src/features/scene/effects/` 下，使用原版的像素尺寸，按 0.04 个场景单位换算 1 像素，所以两个版本大小一致。新增特效时，先参照 `kit.ts` 编写立体版本，在 `registry.ts` 和 `scripts/bake-scene-effects.mjs` 的列表中各登记一次，然后运行 `node scripts/bake-scene-effects.mjs <目录名>` 生成原版对照用的精灵图。
 
 ## 连接 Agent
 

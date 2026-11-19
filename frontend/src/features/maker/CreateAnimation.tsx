@@ -29,11 +29,11 @@ export default function CreateAnimation({ inventory, fromTemplate, close, onCrea
     } catch (err) { setError(errorText(err)) }
     finally { setBusy(false) }
   }
-  return <Modal visible title={fromTemplate ? '从 PixelFX 添加动画' : '新建动画'} onCancel={close}
+  return <Modal visible title={fromTemplate ? '从素材添加特效' : '新建特效'} onCancel={close}
     maskClosable={!busy} closable={!busy} escToExit={!busy} onOk={save}
-    okText={fromTemplate ? '添加到动画库' : '创建动画'} cancelText="取消" confirmLoading={busy}
+    okText={fromTemplate ? '添加特效' : '创建特效'} cancelText="取消" confirmLoading={busy}
     okButtonProps={{ disabled: !name.trim() || !id.trim() || (fromTemplate && !options.some(t => t.id === template)) }}>
-    <form className="anim-form" onSubmit={e => { e.preventDefault(); if (!busy && name.trim()) void save() }}>
+    <form className="maker-form" onSubmit={e => { e.preventDefault(); if (!busy && name.trim()) void save() }}>
       {fromTemplate && <>
         <label>搜索素材<input value={query} placeholder="名称或特效 ID" onChange={e => {
           const q = e.target.value; setQuery(q)
@@ -44,8 +44,8 @@ export default function CreateAnimation({ inventory, fromTemplate, close, onCrea
           {options.map(t => <option key={t.id} value={t.id}>{t.name} · {t.id}</option>)}
         </select></label>
       </>}
-      <label>动画名称<input autoFocus={!fromTemplate} value={name} maxLength={120} placeholder="例如 月光粒子" onChange={e => setName(e.target.value)} /></label>
-      <label>动画 ID<input value={id} onChange={e => setId(e.target.value)} spellCheck={false} /></label>
+      <label>特效名称<input autoFocus={!fromTemplate} value={name} maxLength={120} placeholder="例如 月光粒子" onChange={e => setName(e.target.value)} /></label>
+      <label>特效 ID<input value={id} onChange={e => setId(e.target.value)} spellCheck={false} /></label>
       <p>创建后可把源码路径交给 AI，修改保存后预览会自动刷新。</p>
       {error && <p role="alert">{error}</p>}
     </form>

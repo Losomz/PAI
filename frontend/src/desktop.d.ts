@@ -3,7 +3,7 @@ type SyncRecordData = {
 }
 interface Window {
   pai: {
-    animations: import('./features/animations/types').AnimationAPI
+    animations: import('./features/maker/types').AnimationAPI
     version(): Promise<string>
     directory(title: string): Promise<string | null>
     listRecords(): Promise<SyncRecordData[]>
