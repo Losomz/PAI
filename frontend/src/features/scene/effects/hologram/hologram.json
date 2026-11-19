@@ -12,5 +12,6 @@
     60,
     96
   ],
-  "columns": 11
+  "columns": 11,
+  "margin": 4
 }

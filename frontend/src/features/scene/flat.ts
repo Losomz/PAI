@@ -1,5 +1,5 @@
 import {
-  CanvasTexture, DoubleSide, Mesh, MeshBasicMaterial, NearestFilter, PerspectiveCamera,
+  type Camera, CanvasTexture, DoubleSide, Mesh, MeshBasicMaterial, NearestFilter,
   PlaneGeometry, Scene, SRGBColorSpace, Vector3,
 } from 'three'
 import { CSS3DObject, CSS3DRenderer } from 'three/addons/renderers/CSS3DRenderer.js'
@@ -11,7 +11,7 @@ import type { Sheet } from './effects/registry'
 export const effectFoot = new Vector3(0, 0.045, 0)
 
 // SVGRenderer does not texture meshes. Depth-sort an HTML canvas alongside its geometry
-// and use the same perspective camera to project the canvas in software-rendered scenes.
+// and use the same camera to project the canvas in software-rendered scenes.
 function addSoftwarePlane(scene: Scene, canvas: HTMLCanvasElement, center: Vector3) {
   const projector = new CSS3DRenderer()
   const ns = 'http://www.w3.org/2000/svg'
@@ -29,7 +29,7 @@ function addSoftwarePlane(scene: Scene, canvas: HTMLCanvasElement, center: Vecto
   scene.add(anchor, plane)
   const projected = new Vector3()
   return {
-    project(camera: PerspectiveCamera, w: number, h: number) {
+    project(camera: Camera, w: number, h: number) {
       projector.setSize(w, h)
       projector.render(scene, camera)
       projected.copy(center).project(camera)
@@ -42,12 +42,16 @@ function addSoftwarePlane(scene: Scene, canvas: HTMLCanvasElement, center: Vecto
   }
 }
 
-/** The original effect as a flat card standing at its pivot, playing its baked sprite sheet. */
+/** The middle of an original's card, which stands with its pivot on the effects' foot. */
+export function cardCentre(spec: Sheet['spec']) {
+  const [width, height] = spec.frameSize
+  return effectFoot.clone().add(new Vector3((width / 2 - spec.pivot[0]) * U, (spec.pivot[1] - height / 2) * U, 0))
+}
+
+/** The original effect as a flat card standing at its pivot, playing its sprite sheet. */
 export function addFlat(scene: Scene, sheet: Sheet, hardware: boolean, onLoad: () => void, onError: (message: string) => void) {
   const { spec } = sheet, [width, height] = spec.frameSize
-  const center = effectFoot.clone().add(new Vector3(
-    (width / 2 - spec.pivot[0]) * U, (spec.pivot[1] - height / 2) * U, 0,
-  ))
+  const center = cardCentre(spec)
   const canvas = document.createElement('canvas')
   canvas.width = width
   canvas.height = height

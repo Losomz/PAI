@@ -8,7 +8,8 @@ import {
 const looks = {
   light: { sky: '#e2eae7', floor: '#c8d4d0', grid: ['#839d96', '#aabcb6'], opacity: 0.62,
     ambient: [1.08, 0.62], key: [3.2, 1.1], rim: [1.65, 0.45] },
-  dark: { sky: '#15131d', floor: '#2b2639', grid: ['#4a4263', '#2f2a3d'], opacity: 0.8,
+  // Lit and tone mapped, this floor comes out close to PixelFX's #2b2639 stone, a step lighter than the night.
+  dark: { sky: '#15131d', floor: '#4a4263', grid: ['#4a4263', '#2f2a3d'], opacity: 0.8,
     ambient: [0.34, 0.3], key: [1.25, 0.6], rim: [0.55, 0.25] },
 }
 
@@ -26,8 +27,11 @@ export function createStudio(hardware: boolean) {
   if (hardware) {
     const geometry = new PlaneGeometry(140, 140)
     // Matte, so the effects' lights pool on it instead of glaring off it.
-    ground = new MeshStandardMaterial({ roughness: 0.95 })
+    ground = new MeshStandardMaterial({ roughness: 0.95, depthWrite: false })
     floor = new Mesh(geometry, ground)
+    // A backdrop drawn first and hiding nothing: if it wrote depth it would cut every glow sprite standing on it
+    // along a straight line, splitting the floor into a lit half and a dark one.
+    floor.renderOrder = -3
     floor.position.y = -0.018
     floor.rotation.x = -Math.PI / 2
     floor.receiveShadow = true

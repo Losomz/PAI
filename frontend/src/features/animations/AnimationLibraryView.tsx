@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Modal } from '@arco-design/web-react'
-import { IconCode, IconCopy, IconDelete, IconDownload, IconFile, IconFolder, IconPlus, IconSearch } from '@arco-design/web-react/icon'
+import { useNavigate } from 'react-router-dom'
+import { IconCode, IconCopy, IconDelete, IconDownload, IconEye, IconFile, IconFolder, IconPlus, IconSearch } from '@arco-design/web-react/icon'
 import AnimationPreview from './AnimationPreview'
 import CreateAnimation from './CreateAnimation'
 import { errorText, type AnimationInventory, type AnimationRecord } from './types'
@@ -21,6 +22,7 @@ export default function AnimationLibraryView() {
   const [error, setError] = useState('')
   const [working, setWorking] = useState(false)
   const selectedRow = useRef<HTMLButtonElement>(null)
+  const navigate = useNavigate()
   const refresh = useCallback(() => setGeneration(n => n + 1), [])
 
   useEffect(() => api().onChange(refresh), [refresh])
@@ -90,10 +92,11 @@ export default function AnimationLibraryView() {
           <div className="anim-tabs"><div role="tablist" aria-label="动画视图">
             <button role="tab" aria-selected={tab === 'preview'} onClick={() => setTab('preview')}>动画预览</button>
             <button role="tab" aria-selected={tab === 'code'} onClick={() => setTab('code')}><IconCode /> 源代码</button>
-          </div><button className="anim-export" disabled={working} onClick={() => action(async () => {
+          </div><div><button className="anim-export" onClick={() => navigate('/scene?animation=' + encodeURIComponent(current.id))}>
+            <IconEye /> 在场景中查看</button><button className="anim-export" disabled={working} onClick={() => action(async () => {
             const result = await api().export(current.id, current.revision)
             return result ? '已导出到 ' + result.directory : undefined
-          })}><IconDownload /> 导出精灵图</button></div>
+          })}><IconDownload /> 导出精灵图</button></div></div>
           <div role="tabpanel">{tab === 'preview' ? <AnimationPreview key={current.id + current.revision} item={current} />
             : <pre className="anim-code" tabIndex={0} aria-label="动画源代码"><code>{current.code}</code></pre>}</div>
           <div className="anim-file"><div><IconFile /><div><strong>animation.js</strong><span title={current.codePath}>{current.codePath}</span></div></div>

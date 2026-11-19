@@ -11,6 +11,9 @@ export function nativeEnvironment() {
 
 function collect(info, draw, validateOnly) {
   const { width, height, fps, duration, loop, name } = info
+  // Where the animation stands on the ground, in canvas pixels; the 3D scene puts this point on the floor.
+  const origin = Array.isArray(info.origin) && info.origin.length === 2 && info.origin.every(Number.isFinite)
+    ? info.origin.map(Number) : null
   if (![width, height].every(n => Number.isInteger(n) && n > 0 && n <= 1024) ||
       !Number.isInteger(fps) || fps < 1 || fps > 60 || !Number.isFinite(duration) || duration <= 0 || duration > 60) {
     throw Error('请检查 meta 中的画布尺寸（1–1024）、帧率（1–60）与时长（最多 60 秒）')
@@ -19,7 +22,7 @@ function collect(info, draw, validateOnly) {
   if (width * height * frames > 48_000_000) throw Error('精灵图过大，请缩小画布或减少帧数')
   const columns = Math.min(frames, Math.ceil(Math.sqrt(frames * height / width)))
   const rows = Math.ceil(frames / columns)
-  const meta = { width, height, fps, frames, columns, duration, loop: !!loop, name }
+  const meta = { width, height, fps, frames, columns, duration, loop: !!loop, name, origin }
   const sheet = validateOnly ? null : new pngjs.PNG({ width: columns * width, height: rows * height })
   for (let i = 0; i < (validateOnly ? 1 : frames); i++) {
     draw(i, bytes => {
@@ -62,7 +65,8 @@ export async function renderCode(code, environment, validateOnly = false) {
   try {
     const program = 'import * as entry from "@entry"; import {createPlayer} from "@driver";' +
       'const player = createPlayer(entry); const {width,height,fps,duration,loop,name} = player.info;' +
-      'export const info = {width:+width,height:+height,fps:+fps,duration:+duration,loop:!!loop,name:String(name ?? "").slice(0,120)};' +
+      'const origin = Array.isArray(player.info.origin) ? [+player.info.origin[0], +player.info.origin[1]] : null;' +
+      'export const info = {width:+width,height:+height,fps:+fps,duration:+duration,loop:!!loop,name:String(name ?? "").slice(0,120),origin};' +
       'export function frame(index) {return player.draw(index)}'
     return Scope.withScope(scope => {
       const exports = scope.manage(vm.unwrapResult(vm.evalCode(program, 'main.mjs', { type: 'module' })))

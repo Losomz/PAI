@@ -52,6 +52,8 @@ for (const entry of effects.filter(e => !wanted.length || wanted.includes(e.fold
   const { png, json } = spriteSheet(effect, frames, entry.folder)
   const spec = json.meta.pixelfx
   spec.pivot = spec.pivot.map(v => v + margin)
+  // The 2D view fits the effect's own canvas, not the room left round it for spilt light.
+  spec.margin = margin
   await writeFile(new URL(`${entry.folder}/${entry.folder}.png`, root), png)
   await writeFile(new URL(`${entry.folder}/${entry.folder}.json`, root), JSON.stringify(spec, null, 2) + '\n')
   console.log(`${entry.id}: ${spec.frames} frames of ${spec.frameSize.join('x')}, margin ${margin}`)

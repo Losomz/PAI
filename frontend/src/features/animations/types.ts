@@ -5,6 +5,8 @@ export type AnimationInventory = { root: string; items: AnimationItem[]; templat
 export type Preview = {
   width: number; height: number; fps: number; frames: number; columns: number
   loop: boolean; duration: number; name: string; image: string
+  /** Where it stands on the ground, in canvas pixels, when the animation says. */
+  origin: [number, number] | null
 }
 export interface AnimationAPI {
   list(): Promise<AnimationInventory>

@@ -19,7 +19,7 @@ export function createPlayer(effect) {
   const rgba = new Uint8ClampedArray(width * height * 4)
   const instance = effect.act ? createAct(effect, { x, y }) : createFx(effect, { x, y })
   return {
-    info: { width, height, fps, duration, loop: !!meta.loop, name: meta.name },
+    info: { width, height, fps, duration, loop: !!meta.loop, name: meta.name, origin: [x, y] },
     draw(index) {
       if (index) instance.update(1 / fps)
       instance.draw(clearFrame(frame))

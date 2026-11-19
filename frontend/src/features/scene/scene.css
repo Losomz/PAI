@@ -24,7 +24,7 @@
 .scene-view .scene-toggles button { padding:5px 10px; }
 .scene-toggles button[aria-pressed=true] { color:#185e4f; }
 .scene-toggles button[aria-pressed=false] { color:#687a74; background:#f2f4f2; }
-.scene-header .scene-effects { margin-right:auto; }
+
 .scene-error { position:absolute; top:45%; width:100%; text-align:center; color:#872d21; }
 .scene-footer { flex:none; padding:10px 14px; min-height:22px; border-top:1px solid #d8e1dd; color:#4c625c; font-size:12px; }
 .scene-footer .scene-playback { padding:4px 9px; border-color:#cbdad3; color:#215e51; }
@@ -33,3 +33,23 @@
 .scene-fov input { width:90px; height:4px; accent-color:#256c5d; cursor:pointer; }
 .scene-fov output { min-width:28px; color:#304942; font-family:"Cascadia Code",Consolas,monospace; }
 @media(max-width:930px) { .scene-view { padding:14px; gap:12px; } .scene-header-actions { gap:6px; } .scene-footer { padding:9px 11px; } }
+.scene-picker { position:relative; margin-right:auto; }
+.scene-view .scene-picker-current { min-width:220px; justify-content:space-between; gap:14px; padding:5px 11px; border-color:#cddad5; background:#f8fbf9; text-align:left; }
+.scene-picker-current span,.scene-picker-list button span { display:flex; flex-direction:column; min-width:0; }
+.scene-picker strong { font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.scene-picker small { color:#6b7f79; font:11px "Cascadia Code",Consolas,monospace; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.scene-picker-panel { position:absolute; z-index:20; top:calc(100% + 6px); left:0; width:min(340px,80vw); display:flex; flex-direction:column; gap:6px; padding:8px; background:#fff; border:1px solid #cddad5; border-radius:8px; box-shadow:0 10px 30px #193d3026; }
+.scene-search { display:flex; align-items:center; gap:6px; padding:6px 8px; border:1px solid #d3dfda; border-radius:6px; color:#6b7f79; }
+.scene-search input { flex:1; min-width:0; border:0; outline:0; font:inherit; color:#213231; background:transparent; }
+.scene-picker-list { max-height:min(420px,60vh); overflow:auto; display:flex; flex-direction:column; }
+.scene-view .scene-picker-list button { justify-content:space-between; gap:10px; padding:6px 8px; text-align:left; }
+.scene-view .scene-picker-list button[aria-selected=true] { background:#e3efea; }
+.scene-picker-list em { flex:none; padding:1px 6px; color:#215e51; background:#dcece6; border-radius:4px; font-size:11px; font-style:normal; }
+.scene-picker-list p { margin:10px 8px; color:#6b7f79; }
+.scene-viewport[data-view="2d"] { cursor:move; }
+.scene-loading,.scene-note { position:absolute; left:14px; bottom:12px; margin:0; padding:5px 10px; font-size:12px; color:#e6e1f2; background:#0e0c14c7; border-radius:6px; pointer-events:none; }
+.scene-loading { left:50%; transform:translateX(-50%); }
+.scene-zoom { display:flex; align-items:center; gap:2px; margin-left:auto; }
+.scene-view .scene-zoom button { padding:4px 7px; border-color:#cbdad3; }
+.scene-zoom output { min-width:34px; text-align:center; color:#304942; font-family:"Cascadia Code",Consolas,monospace; }
+.scene-modes button:disabled { color:#a8b6b1; cursor:not-allowed; background:transparent; }
